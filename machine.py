@@ -5,8 +5,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from comp.processor import StackProcessor
-from isa.machine_code import MachineCode
+from csa4_impl.comp.processor import StackProcessor
+from csa4_impl.isa.machine_code import MachineCode
 
 
 def main() -> None:

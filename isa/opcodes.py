@@ -66,6 +66,14 @@ class Opcode(IntEnum):
     V_DIV = 0x85    # Векторное деление
     V_CMP = 0x86    # Векторное сравнение
     V_DOT = 0x87    # Скалярное произведение векторов
+    V_NORM = 0x88   # Норма вектора (длина)
+    V_MAX = 0x89    # Максимальный элемент вектора
+    V_MIN = 0x8A    # Минимальный элемент вектора
+    V_SUM = 0x8B    # Сумма элементов вектора
+    V_AVG = 0x8C    # Среднее арифметическое элементов
+    V_SCALE = 0x8D  # Умножение вектора на скаляр
+    V_COPY = 0x8E   # Копирование вектора
+    V_SET = 0x8F    # Установка элемента вектора
 
 
 # Размеры инструкций в словах
@@ -118,6 +126,14 @@ INSTRUCTION_SIZES = {
     Opcode.V_DIV: 1,
     Opcode.V_CMP: 1,
     Opcode.V_DOT: 1,
+    Opcode.V_NORM: 1,
+    Opcode.V_MAX: 1,
+    Opcode.V_MIN: 1,
+    Opcode.V_SUM: 1,
+    Opcode.V_AVG: 1,
+    Opcode.V_SCALE: 1,
+    Opcode.V_COPY: 1,
+    Opcode.V_SET: 2,
 }
 
 
@@ -167,6 +183,14 @@ INSTRUCTION_CYCLES = {
     Opcode.V_DIV: 12,
     Opcode.V_CMP: 4,
     Opcode.V_DOT: 8,
+    Opcode.V_NORM: 10,
+    Opcode.V_MAX: 4,
+    Opcode.V_MIN: 4,
+    Opcode.V_SUM: 4,
+    Opcode.V_AVG: 6,
+    Opcode.V_SCALE: 4,
+    Opcode.V_COPY: 4,
+    Opcode.V_SET: 2,
 }
 
 

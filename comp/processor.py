@@ -5,8 +5,8 @@ from typing import List, Dict, Optional, Any, Tuple, Union
 from enum import Enum
 import logging
 
-from ..isa.opcodes import Opcode, INSTRUCTION_CYCLES, is_vector_operation
-from ..isa.machine_code import Instruction, MachineCode
+from csa4_impl.isa.opcodes import Opcode, INSTRUCTION_CYCLES, is_vector_operation
+from csa4_impl.isa.machine_code import Instruction, MachineCode
 
 
 class ProcessorState(Enum):
@@ -203,6 +203,116 @@ class VectorUnit:
         return result & 0xFFFFFFFF
 
 
+class VectorProcessor:
+    """Векторный блок процессора."""
+    
+    def __init__(self) -> None:
+        # 8 векторных регистров
+        self.vector_registers: List[List[int]] = [[] for _ in range(8)]
+        self.max_vector_length = 16  # Максимальная длина вектора
+    
+    def load_vector(self, reg_id: int, elements: List[int]) -> None:
+        """Загрузить вектор в регистр."""
+        if 0 <= reg_id < len(self.vector_registers):
+            self.vector_registers[reg_id] = elements[:self.max_vector_length]
+    
+    def get_vector(self, reg_id: int) -> List[int]:
+        """Получить вектор из регистра."""
+        if 0 <= reg_id < len(self.vector_registers):
+            return self.vector_registers[reg_id].copy()
+        return []
+    
+    def vector_add(self, reg1: int, reg2: int, result_reg: int) -> None:
+        """Векторное сложение."""
+        vec1 = self.get_vector(reg1)
+        vec2 = self.get_vector(reg2)
+        result = []
+        for i in range(min(len(vec1), len(vec2))):
+            result.append((vec1[i] + vec2[i]) & 0xFFFFFFFF)
+        self.load_vector(result_reg, result)
+    
+    def vector_sub(self, reg1: int, reg2: int, result_reg: int) -> None:
+        """Векторное вычитание."""
+        vec1 = self.get_vector(reg1)
+        vec2 = self.get_vector(reg2)
+        result = []
+        for i in range(min(len(vec1), len(vec2))):
+            result.append((vec1[i] - vec2[i]) & 0xFFFFFFFF)
+        self.load_vector(result_reg, result)
+    
+    def vector_mul(self, reg1: int, reg2: int, result_reg: int) -> None:
+        """Векторное умножение."""
+        vec1 = self.get_vector(reg1)
+        vec2 = self.get_vector(reg2)
+        result = []
+        for i in range(min(len(vec1), len(vec2))):
+            result.append((vec1[i] * vec2[i]) & 0xFFFFFFFF)
+        self.load_vector(result_reg, result)
+    
+    def vector_dot(self, reg1: int, reg2: int) -> int:
+        """Скалярное произведение векторов."""
+        vec1 = self.get_vector(reg1)
+        vec2 = self.get_vector(reg2)
+        result = 0
+        for i in range(min(len(vec1), len(vec2))):
+            result += vec1[i] * vec2[i]
+        return result & 0xFFFFFFFF
+    
+    def vector_norm(self, reg: int) -> int:
+        """Вычислить норму (длину) вектора."""
+        vec = self.get_vector(reg)
+        sum_squares = sum(x * x for x in vec)
+        return int(sum_squares ** 0.5) & 0xFFFFFFFF
+    
+    def vector_max(self, reg: int) -> int:
+        """Найти максимальный элемент вектора."""
+        vec = self.get_vector(reg)
+        return max(vec) if vec else 0
+    
+    def vector_min(self, reg: int) -> int:
+        """Найти минимальный элемент вектора."""
+        vec = self.get_vector(reg)
+        return min(vec) if vec else 0
+    
+    def vector_sum(self, reg: int) -> int:
+        """Сумма элементов вектора."""
+        vec = self.get_vector(reg)
+        return sum(vec) & 0xFFFFFFFF
+    
+    def vector_avg(self, reg: int) -> int:
+        """Среднее арифметическое элементов вектора."""
+        vec = self.get_vector(reg)
+        if not vec:
+            return 0
+        return (sum(vec) // len(vec)) & 0xFFFFFFFF
+    
+    def vector_scale(self, reg: int, scalar: int, result_reg: int) -> None:
+        """Умножение вектора на скаляр."""
+        vec = self.get_vector(reg)
+        result = [(x * scalar) & 0xFFFFFFFF for x in vec]
+        self.load_vector(result_reg, result)
+    
+    def vector_copy(self, src_reg: int, dst_reg: int) -> None:
+        """Копирование вектора."""
+        vec = self.get_vector(src_reg)
+        self.load_vector(dst_reg, vec)
+    
+    def vector_set(self, reg: int, index: int, value: int) -> None:
+        """Установить элемент вектора."""
+        if 0 <= reg < len(self.vector_registers):
+            vec = self.vector_registers[reg]
+            if 0 <= index < len(vec):
+                vec[index] = value & 0xFFFFFFFF
+    
+    def vector_get(self, reg: int, index: int) -> int:
+        """Получить элемент вектора."""
+        if 0 <= reg < len(self.vector_registers):
+            vec = self.vector_registers[reg]
+            if 0 <= index < len(vec):
+                return vec[index]
+        return 0
+
+
 class StackProcessor:
     """Стековый процессор с векторными расширениями."""
     
@@ -229,6 +339,9 @@ class StackProcessor:
         # IO буферы
         self.input_buffer: List[int] = []
         self.output_buffer: List[int] = []
+        
+        # Векторный процессор
+        self.vector_unit = VectorProcessor()
         
         # Логгер
         self.execution_log: List[str] = []
@@ -292,6 +405,22 @@ class StackProcessor:
             elif opcode == Opcode.POP:
                 self.pop()
             
+            elif opcode == Opcode.DUP:
+                if self.stack:
+                    value = self.stack[-1]
+                    self.push(value)
+                else:
+                    raise ProcessorError("Стек пуст для DUP")
+            
+            elif opcode == Opcode.SWAP:
+                if len(self.stack) >= 2:
+                    a = self.pop()
+                    b = self.pop()
+                    self.push(a)
+                    self.push(b)
+                else:
+                    raise ProcessorError("Недостаточно элементов для SWAP")
+            
             elif opcode == Opcode.ADD:
                 b = self.pop()
                 a = self.pop()
@@ -310,6 +439,92 @@ class StackProcessor:
                 result = (a * b) & 0xFFFFFFFF
                 self.push(result)
             
+            elif opcode == Opcode.DIV:
+                b = self.pop()
+                a = self.pop()
+                if b == 0:
+                    raise ProcessorError("Деление на ноль")
+                result = (a // b) & 0xFFFFFFFF
+                self.push(result)
+            
+            elif opcode == Opcode.MOD:
+                b = self.pop()
+                a = self.pop()
+                if b == 0:
+                    raise ProcessorError("Деление на ноль")
+                result = (a % b) & 0xFFFFFFFF
+                self.push(result)
+            
+            # Логические операции
+            elif opcode == Opcode.AND:
+                b = self.pop()
+                a = self.pop()
+                result = a & b
+                self.push(result)
+            
+            elif opcode == Opcode.OR:
+                b = self.pop()
+                a = self.pop()
+                result = a | b
+                self.push(result)
+            
+            elif opcode == Opcode.NOT:
+                a = self.pop()
+                result = (~a) & 0xFFFFFFFF
+                self.push(result)
+            
+            # Операции сравнения
+            elif opcode == Opcode.EQ:
+                b = self.pop()
+                a = self.pop()
+                result = 1 if a == b else 0
+                self.push(result)
+            
+            elif opcode == Opcode.LT:
+                b = self.pop()
+                a = self.pop()
+                result = 1 if a < b else 0
+                self.push(result)
+            
+            elif opcode == Opcode.GT:
+                b = self.pop()
+                a = self.pop()
+                result = 1 if a > b else 0
+                self.push(result)
+            
+            # Переходы
+            elif opcode == Opcode.JMP:
+                self.pc = operand
+                return True
+            
+            elif opcode == Opcode.JZ:
+                condition = self.pop()
+                if condition == 0:
+                    self.pc = operand
+                    return True
+            
+            elif opcode == Opcode.JNZ:
+                condition = self.pop()
+                if condition != 0:
+                    self.pc = operand
+                    return True
+            
+            # Функции
+            elif opcode == Opcode.CALL:
+                self.call_stack.append(self.pc + 1)
+                self.pc = operand
+                return True
+            
+            elif opcode == Opcode.RET:
+                if self.call_stack:
+                    self.pc = self.call_stack.pop()
+                    return True
+                else:
+                    # Если стек вызовов пуст, завершаем программу
+                    self.state = ProcessorState.HALTED
+                    return False
+            
+            # Операции с памятью
             elif opcode == Opcode.LOAD:
                 address = self.pop()
                 value = self.read_memory_word(address)
@@ -320,9 +535,185 @@ class StackProcessor:
                 value = self.pop()
                 self.write_memory_word(address, value)
             
+            # Портовый I/O с прерываниями
+            elif opcode == Opcode.IN:
+                # Читаем из входного буфера
+                if self.input_buffer:
+                    value = self.input_buffer.pop(0)
+                    self.push(value)
+                else:
+                    # Если нет данных, ждем прерывание или возвращаем 0
+                    self.push(0)
+            
             elif opcode == Opcode.OUT:
                 value = self.pop()
-                self.output_buffer.append(value)
+                # Проверяем, что это строковый адрес для C-string
+                if operand == 1:  # Порт вывода строк
+                    if value < len(self.data_memory):
+                        # Читаем C-строку из памяти
+                        string_bytes = []
+                        addr = value
+                        while addr < len(self.data_memory) and self.data_memory[addr] != 0:
+                            string_bytes.append(self.data_memory[addr])
+                            addr += 1
+                        
+                        # Добавляем байты в вывод
+                        self.output_buffer.extend(string_bytes)
+                    else:
+                        self.output_buffer.append(value)
+                else:
+                    self.output_buffer.append(value)
+            
+            # Прерывания
+            elif opcode == Opcode.INT:
+                # Программное прерывание
+                self.handle_software_interrupt(operand)
+            
+            elif opcode == Opcode.IRET:
+                # Возврат из прерывания
+                if self.call_stack:
+                    self.pc = self.call_stack.pop()
+                    return True
+                else:
+                    raise ProcessorError("Стек вызовов пуст при IRET")
+            
+            # Векторные операции
+            elif opcode == Opcode.V_ADD:
+                # Ожидаем 3 регистра на стеке: reg1, reg2, result_reg
+                if len(self.stack) >= 3:
+                    result_reg = self.pop()
+                    reg2 = self.pop()
+                    reg1 = self.pop()
+                    self.vector_unit.vector_add(reg1, reg2, result_reg)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_ADD")
+            
+            elif opcode == Opcode.V_SUB:
+                if len(self.stack) >= 3:
+                    result_reg = self.pop()
+                    reg2 = self.pop()
+                    reg1 = self.pop()
+                    self.vector_unit.vector_sub(reg1, reg2, result_reg)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_SUB")
+            
+            elif opcode == Opcode.V_MUL:
+                if len(self.stack) >= 3:
+                    result_reg = self.pop()
+                    reg2 = self.pop()
+                    reg1 = self.pop()
+                    self.vector_unit.vector_mul(reg1, reg2, result_reg)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_MUL")
+            
+            elif opcode == Opcode.V_DOT:
+                if len(self.stack) >= 2:
+                    reg2 = self.pop()
+                    reg1 = self.pop()
+                    result = self.vector_unit.vector_dot(reg1, reg2)
+                    self.push(result)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_DOT")
+            
+            elif opcode == Opcode.V_NORM:
+                if len(self.stack) >= 1:
+                    reg = self.pop()
+                    result = self.vector_unit.vector_norm(reg)
+                    self.push(result)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_NORM")
+            
+            elif opcode == Opcode.V_MAX:
+                if len(self.stack) >= 1:
+                    reg = self.pop()
+                    result = self.vector_unit.vector_max(reg)
+                    self.push(result)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_MAX")
+            
+            elif opcode == Opcode.V_MIN:
+                if len(self.stack) >= 1:
+                    reg = self.pop()
+                    result = self.vector_unit.vector_min(reg)
+                    self.push(result)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_MIN")
+            
+            elif opcode == Opcode.V_SUM:
+                if len(self.stack) >= 1:
+                    reg = self.pop()
+                    result = self.vector_unit.vector_sum(reg)
+                    self.push(result)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_SUM")
+            
+            elif opcode == Opcode.V_AVG:
+                if len(self.stack) >= 1:
+                    reg = self.pop()
+                    result = self.vector_unit.vector_avg(reg)
+                    self.push(result)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_AVG")
+            
+            elif opcode == Opcode.V_SCALE:
+                if len(self.stack) >= 3:
+                    result_reg = self.pop()
+                    scalar = self.pop()
+                    reg = self.pop()
+                    self.vector_unit.vector_scale(reg, scalar, result_reg)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_SCALE")
+            
+            elif opcode == Opcode.V_COPY:
+                if len(self.stack) >= 2:
+                    dst_reg = self.pop()
+                    src_reg = self.pop()
+                    self.vector_unit.vector_copy(src_reg, dst_reg)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_COPY")
+            
+            elif opcode == Opcode.V_SET:
+                # index в operand, value и reg на стеке
+                if len(self.stack) >= 2:
+                    value = self.pop()
+                    reg = self.pop()
+                    self.vector_unit.vector_set(reg, operand, value)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_SET")
+            
+            elif opcode == Opcode.V_LOAD:
+                # Загрузить вектор из памяти данных
+                if len(self.stack) >= 3:
+                    reg = self.pop()
+                    length = self.pop()
+                    address = self.pop()
+                    
+                    elements = []
+                    for i in range(min(length, self.vector_unit.max_vector_length)):
+                        if address + i * 4 + 3 < len(self.data_memory):
+                            word = self.read_memory_word(address + i * 4)
+                            elements.append(word)
+                        else:
+                            break
+                    
+                    self.vector_unit.load_vector(reg, elements)
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_LOAD")
+            
+            elif opcode == Opcode.V_STORE:
+                # Сохранить вектор в память данных
+                if len(self.stack) >= 2:
+                    reg = self.pop()
+                    address = self.pop()
+                    
+                    vec = self.vector_unit.get_vector(reg)
+                    for i, value in enumerate(vec):
+                        if address + i * 4 + 3 < len(self.data_memory):
+                            self.write_memory_word(address + i * 4, value)
+                        else:
+                            break
+                else:
+                    raise ProcessorError("Недостаточно параметров для V_STORE")
             
             else:
                 raise ProcessorError(f"Неизвестная инструкция: {opcode}")
@@ -334,6 +725,18 @@ class StackProcessor:
         # Увеличиваем PC
         self.pc += 1
         return True
+    
+    def handle_software_interrupt(self, vector: int) -> None:
+        """Обработать программное прерывание."""
+        # Простая реализация системных вызовов
+        if vector == 0:  # Системный вызов вывода
+            # Поп строку с стека и выведем
+            if self.stack:
+                addr = self.pop()
+                self.execute_instruction(Instruction(Opcode.OUT, 1))
+        elif vector == 1:  # Системный вызов ввода
+            # Запросить ввод (симуляция)
+            self.push(0)  # Пока что возвращаем 0
     
     def step(self) -> bool:
         """Выполнить один шаг. Возвращает True если нужно продолжать."""

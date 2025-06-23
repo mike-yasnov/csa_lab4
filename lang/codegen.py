@@ -4,8 +4,8 @@ from typing import Dict, List, Optional, Any, Union
 import struct
 
 from .ast_nodes import *
-from ..isa.opcodes import Opcode
-from ..isa.machine_code import MachineCode, Instruction
+from csa4_impl.isa.opcodes import Opcode
+from csa4_impl.isa.machine_code import MachineCode, Instruction
 
 
 class CodeGenError(Exception):
