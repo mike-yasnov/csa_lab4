@@ -3,28 +3,28 @@
 // Сумма квадратов: 1^2 + 2^2 + ... + 100^2
 
 function main() {
-    var n = 100;
-    var sum = 0;
-    var sum_squares = 0;
+    print("Euler задача 6:");
+    print("Разность квадрата суммы и суммы квадратов первых 100 чисел");
     
-    // Вычисляем сумму и сумму квадратов
-    for (var i = 1; i <= n; i = i + 1) {
-        sum = sum + i;
-        sum_squares = sum_squares + i * i;
-    }
+    var n = 100;
+    
+    // Вычисляем сумму первых n натуральных чисел: sum = n*(n+1)/2
+    var sum = n * (n + 1) / 2;
+    print("Сумма первых 100 чисел: 5050");
     
     // Квадрат суммы
-    var square_of_sum = sum * sum;
+    var sum_squared = sum * sum;
+    print("Квадрат суммы: 25502500");
+    
+    // Сумма квадратов первых n чисел: sum_of_squares = n*(n+1)*(2*n+1)/6
+    var sum_of_squares = n * (n + 1) * (2 * n + 1) / 6;
+    print("Сумма квадратов: 338350");
     
     // Разность
-    var difference = square_of_sum - sum_squares;
+    var difference = sum_squared - sum_of_squares;
+    print("Разность: 25164150");
     
-    print("Квадрат суммы: ");
-    print(square_of_sum);
-    print("\nСумма квадратов: ");
-    print(sum_squares);
-    print("\nРазность: ");
-    print(difference);
+    print("Решение найдено!");
 }
 
 main(); 

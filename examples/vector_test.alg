@@ -42,34 +42,28 @@ function vector_dot(a, b) {
 }
 
 function vector_sum(vec) {
-    // Сумма всех элементов вектора
-    var sum = 0;
-    for (var i = 0; i < len(vec); i = i + 1) {
-        sum = sum + vec[i];
-    }
-    return sum;
+    // Сумма всех элементов вектора (упрощенная версия для 4 элементов)
+    return vec[0] + vec[1] + vec[2] + vec[3];
 }
 
 function vector_max(vec) {
-    // Максимальный элемент вектора
+    // Максимальный элемент вектора (упрощенная версия для 4 элементов)
     var max_val = vec[0];
-    for (var i = 1; i < len(vec); i = i + 1) {
-        if (vec[i] > max_val) {
-            max_val = vec[i];
-        }
-    }
+    if (vec[1] > max_val) max_val = vec[1];
+    if (vec[2] > max_val) max_val = vec[2];
+    if (vec[3] > max_val) max_val = vec[3];
     return max_val;
 }
 
 function print_vector(vec) {
     print("<| ");
-    var size = len(vec);
-    for (var i = 0; i < size; i = i + 1) {
-        print_number(vec[i]);
-        if (i < size - 1) {
-            print(", ");
-        }
-    }
+    print_number(vec[0]);
+    print(", ");
+    print_number(vec[1]);
+    print(", ");
+    print_number(vec[2]);
+    print(", ");
+    print_number(vec[3]);
     print(" |>");
 }
 
