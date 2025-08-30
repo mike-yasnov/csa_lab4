@@ -6,9 +6,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from csa4_impl.lang.lexer import tokenize, LexerError
-from csa4_impl.lang.parser import parse, ParseError
-from csa4_impl.lang.codegen import generate_code, CodeGenError
+from lang.lexer import tokenize, LexerError
+from lang.parser import parse, ParseError
+from lang.codegen import generate_code, CodeGenError
 
 
 def main() -> None:

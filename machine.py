@@ -5,8 +5,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from csa4_impl.comp.processor import StackProcessor
-from csa4_impl.isa.machine_code import MachineCode
+from comp.processor import StackProcessor
+from isa.machine_code import MachineCode
 
 
 def main() -> None:
@@ -53,7 +53,7 @@ def main() -> None:
         result = processor.run(args.max_cycles)
         
         # Выводим результаты
-        print("\n=== РЕЗУЛЬТАТЫ ВЫПОЛНЕНИЯ ===")
+        print("=== РЕЗУЛЬТАТЫ ВЫПОЛНЕНИЯ ===")
         print(f"Состояние: {result['state']}")
         print(f"Выполнено инструкций: {result['instructions_executed']}")
         print(f"Затрачено тактов: {result['cycles_executed']}")

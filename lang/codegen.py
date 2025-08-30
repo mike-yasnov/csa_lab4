@@ -76,13 +76,14 @@ class CodeGenerator(ASTVisitor):
             'read': self._generate_read,
             'readInt': self._generate_read_int,
             'len': self._generate_len,
+            'chr': self._generate_chr,
+            'set_interrupt_handler': self._generate_set_interrupt_handler,
+            'enable_interrupts': self._generate_enable_interrupts,
+            'disable_interrupts': self._generate_disable_interrupts,
         }
     
     def generate(self, program: Program) -> MachineCode:
         """Главная функция генерации кода."""
-        # Сначала добавляем встроенные строки
-        self._add_builtin_strings()
-        
         # Генерируем код программы
         program.accept(self)
         
@@ -91,11 +92,7 @@ class CodeGenerator(ASTVisitor):
         
         return self.machine_code
     
-    def _add_builtin_strings(self) -> None:
-        """Добавить встроенные строки в память данных."""
-        # Строки для встроенных функций
-        prompt_msg = "What is your name?"
-        self.symbols.strings['__prompt'] = self.machine_code.add_cstring(prompt_msg)
+
     
     def _emit(self, opcode: int, operand: int = 0) -> int:
         """Генерировать инструкцию и вернуть её адрес."""
@@ -471,6 +468,38 @@ class CodeGenerator(ASTVisitor):
         arguments[0].accept(self)
         # Для векторов/массивов первые 4 байта содержат размер
         self._emit(Opcode.LOAD)
+
+    def _generate_chr(self, arguments: List[Expression]) -> None:
+        """Генерировать код для chr - преобразование числа в символ."""
+        if len(arguments) != 1:
+            raise CodeGenError("chr принимает ровно один аргумент")
+        
+        arguments[0].accept(self)
+        # Для простоты возвращаем число как есть (код символа)
+        # В реальной реализации могли бы преобразовывать в строку
+
+    def _generate_set_interrupt_handler(self, arguments: List[Expression]) -> None:
+        """Генерировать код для set_interrupt_handler."""
+        if len(arguments) != 2:
+            raise CodeGenError("set_interrupt_handler принимает 2 аргумента")
+        
+        arguments[0].accept(self)  # Номер прерывания
+        arguments[1].accept(self)  # Адрес обработчика
+        self._emit(Opcode.INT, 0x80)  # Системный вызов для установки обработчика
+
+    def _generate_enable_interrupts(self, arguments: List[Expression]) -> None:
+        """Генерировать код для enable_interrupts."""
+        if len(arguments) != 0:
+            raise CodeGenError("enable_interrupts не принимает аргументов")
+        
+        self._emit(Opcode.INT, 0x81)  # Системный вызов для включения прерываний
+
+    def _generate_disable_interrupts(self, arguments: List[Expression]) -> None:
+        """Генерировать код для disable_interrupts."""
+        if len(arguments) != 0:
+            raise CodeGenError("disable_interrupts не принимает аргументов")
+        
+        self._emit(Opcode.INT, 0x82)  # Системный вызов для отключения прерываний
 
 
 def generate_code(program: Program) -> MachineCode:

@@ -127,7 +127,11 @@ class GoldenTest:
             ("hello", "hello.alg", ""),
             ("simple_vector", "simple_vector.alg", ""),
             ("euler6", "euler6.alg", ""),
-            # Добавим больше тестов в будущем
+            ("cat", "cat.alg", "Hello\nWorld\n"),
+            ("hello_user_name", "hello_user_name.alg", "A"),
+            ("sort", "sort.alg", ""),
+            ("double_precision", "double_precision.alg", ""),
+            ("interrupt_demo", "interrupt_demo.alg", ""),
         ]
         
         print("Генерация эталонных тестов...")
@@ -143,6 +147,11 @@ class GoldenTest:
             ("hello", "hello.alg", ""),
             ("simple_vector", "simple_vector.alg", ""),
             ("euler6", "euler6.alg", ""),
+            ("cat", "cat.alg", "Hello\nWorld\n"),
+            ("hello_user_name", "hello_user_name.alg", "A"),
+            ("sort", "sort.alg", ""),
+            ("double_precision", "double_precision.alg", ""),
+            ("interrupt_demo", "interrupt_demo.alg", ""),
         ]
         
         print("Запуск golden тестов...")
