@@ -32,13 +32,13 @@ class GoldenTest:
         
         return output
     
-    def run_test(self, test_name: str, source_file: str, input_data: str = "") -> Tuple[int, str, str]:
-        """Запустить один тест и вернуть код возврата, stdout, stderr."""
+    def run_test(self, test_name: str, source_file: str, input_data: str = "") -> Tuple[int, str, str, str, str]:
+        """Запустить один тест и вернуть код возврата, stdout, stderr, exec_log, debug_listing."""
         
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
-            # Транслируем программу (запускаем скрипт из каталога csa4_impl)
+            # Транслируем программу
             cmd = [
                 sys.executable, "translator.py",
                 str(self.examples_dir / source_file),
@@ -48,13 +48,19 @@ class GoldenTest:
             
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir)
             if result.returncode != 0:
-                return result.returncode, "", f"Translation error: {result.stderr}"
+                return result.returncode, "", f"Translation error: {result.stderr}", "", ""
+            # Читаем отладочный листинг транслятора
+            debug_listing_path = temp_path / "program_debug.txt"
+            debug_listing = ""
+            if debug_listing_path.exists():
+                debug_listing = debug_listing_path.read_text(encoding='utf-8')
             
             # Запускаем машину
             cmd = [
                 sys.executable, "machine.py",
                 str(temp_path / "program.bin"),
-                "-d", str(temp_path / "program_data.bin")
+                "-d", str(temp_path / "program_data.bin"),
+                "--log-exec", str(temp_path / "exec.log")
             ]
             
             if input_data:
@@ -66,17 +72,24 @@ class GoldenTest:
             # Нормализуем вывод
             normalized_stdout = self.normalize_output(result.stdout)
             normalized_stderr = self.normalize_output(result.stderr)
+            # Читаем журнал тактов
+            exec_log_path = temp_path / "exec.log"
+            exec_log = ""
+            if exec_log_path.exists():
+                exec_log = exec_log_path.read_text(encoding='utf-8')
             
-            return result.returncode, normalized_stdout, normalized_stderr
+            return result.returncode, normalized_stdout, normalized_stderr, exec_log, debug_listing
     
-    def save_golden(self, test_name: str, return_code: int, stdout: str, stderr: str) -> None:
-        """Сохранить эталонный результат."""
+    def save_golden(self, test_name: str, return_code: int, stdout: str, stderr: str, exec_log: str, debug_listing: str) -> None:
+        """Сохранить эталонный результат (включая журнал тактов и отладочный листинг транслятора)."""
         golden_file = self.golden_dir / f"{test_name}.json"
         
         data = {
             "return_code": return_code,
             "stdout": stdout,
-            "stderr": stderr
+            "stderr": stderr,
+            "exec_log": exec_log,
+            "debug_listing": debug_listing
         }
         
         with open(golden_file, 'w', encoding='utf-8') as f:
@@ -94,18 +107,20 @@ class GoldenTest:
         with open(golden_file, 'r', encoding='utf-8') as f:
             return json.load(f)
     
-    def compare_results(self, test_name: str, actual: Tuple[int, str, str]) -> bool:
+    def compare_results(self, test_name: str, actual: Tuple[int, str, str, str, str]) -> bool:
         """Сравнить результат с эталоном."""
         golden = self.load_golden(test_name)
         if golden is None:
             print(f"❌ {test_name}: Эталон не найден")
             return False
         
-        actual_code, actual_stdout, actual_stderr = actual
+        actual_code, actual_stdout, actual_stderr, actual_exec_log, actual_debug_listing = actual
         
         if (golden["return_code"] == actual_code and
             golden["stdout"] == actual_stdout and
-            golden["stderr"] == actual_stderr):
+            golden["stderr"] == actual_stderr and
+            golden.get("exec_log", "") == actual_exec_log and
+            golden.get("debug_listing", "") == actual_debug_listing):
             print(f"✅ {test_name}: PASSED")
             return True
         else:
@@ -120,6 +135,14 @@ class GoldenTest:
                 print(f"   Stderr различается:")
                 print(f"     Ожидалось: {repr(golden['stderr'])}")
                 print(f"     Получено:  {repr(actual_stderr)}")
+            if golden.get("exec_log", "") != actual_exec_log:
+                print(f"   Exec log различается (первые 200 симв.):")
+                print(f"     Ожидалось: {repr(golden.get('exec_log', '')[:200])}...")
+                print(f"     Получено:  {repr(actual_exec_log[:200])}...")
+            if golden.get("debug_listing", "") != actual_debug_listing:
+                print(f"   Debug listing различается (первые 200 симв.):")
+                print(f"     Ожидалось: {repr(golden.get('debug_listing', '')[:200])}...")
+                print(f"     Получено:  {repr(actual_debug_listing[:200])}...")
             return False
     
     def generate_goldens(self) -> None:

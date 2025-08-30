@@ -1,5 +1,7 @@
 {
   "return_code": 0,
   "stdout": "Загрузка программы: /tmp/tempfile/program.bin\nЗагружено 20 инструкций\nЗагрузка данных: /tmp/tempfile/program_data.bin\nЗагружено 33 байт данных\nЗапуск выполнения (максимум 1000000 тактов)...\n\n=== РЕЗУЛЬТАТЫ ВЫПОЛНЕНИЯ ===\nСостояние: halted\nВыполнено инструкций: 3\nЗатрачено тактов: 8\nФинальный PC: 2\n\nВЫВОД ПРОГРАММЫ:\nWhat is your name?\n\nПрограмма завершена успешно.\n",
-  "stderr": ""
+  "stderr": "",
+  "exec_log": "Cycle 000002: PC=0000 00(000000) Stack[0] TOS=empty\nCycle 000007: PC=0001 61(000001) Stack[1] TOS=0\nCycle 000008: PC=0002 01(000000) Stack[0] TOS=empty",
+  "debug_listing": "INSTRUCTION MEMORY:\nAddress - Hex Code - Mnemonic\n----------------------------------------\n0000 - 00000000 - PUSH\n0002 - 61010000 - OUT 1\n0004 - 01000000 - POP\n0005 - 60000000 - IN\n0007 - 00130000 - PUSH 19\n0009 - 51000000 - STORE\n000A - 00170000 - PUSH 23\n000C - 61010000 - OUT 1\n000E - 01000000 - POP\n000F - 00130000 - PUSH 19\n0011 - 50000000 - LOAD\n0012 - 61010000 - OUT 1\n0014 - 01000000 - POP\n0015 - 001F0000 - PUSH 31\n0017 - 61010000 - OUT 1\n0019 - 01000000 - POP\n001A - 44000000 - RET\n001B - 43000000 - CALL\n001D - 01000000 - POP\n001E - 70000000 - HALT\n\nDATA MEMORY:\nAddress - Hex Dump - ASCII\n----------------------------------------\n0000 - 57 68 61 74 20 69 73 20 79 6F 75 72 20 6E 61 6D  - What is your nam\n0010 - 65 3F 00 00 00 00 00 48 65 6C 6C 6F 2C 20 00 21  - e?.....Hello, .!\n0020 - 00                                               - .\n"
 }

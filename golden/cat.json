@@ -1,5 +1,7 @@
 {
   "return_code": 0,
   "stdout": "Загрузка программы: /tmp/tempfile/program.bin\nЗагружено 25 инструкций\nЗагрузка данных: /tmp/tempfile/program_data.bin\nЗагружено 4 байт данных\nЗапуск выполнения (максимум 1000000 тактов)...\n\n=== РЕЗУЛЬТАТЫ ВЫПОЛНЕНИЯ ===\nСостояние: halted\nВыполнено инструкций: 7\nЗатрачено тактов: 19\nФинальный PC: 6\n\nПрограмма завершена успешно.\n",
-  "stderr": ""
+  "stderr": "",
+  "exec_log": "Cycle 000002: PC=0000 00(000001) Stack[0] TOS=empty\nCycle 000004: PC=0001 00(000000) Stack[1] TOS=1\nCycle 000008: PC=0002 51(000000) Stack[2] TOS=0\nCycle 000010: PC=0003 00(000000) Stack[0] TOS=empty\nCycle 000014: PC=0004 50(000000) Stack[1] TOS=0\nCycle 000016: PC=0005 00(000000) Stack[1] TOS=1\nCycle 000019: PC=0006 31(000000) Stack[2] TOS=0",
+  "debug_listing": "INSTRUCTION MEMORY:\nAddress - Hex Code - Mnemonic\n----------------------------------------\n0000 - 00010000 - PUSH 1\n0002 - 00000000 - PUSH\n0004 - 51000000 - STORE\n0005 - 00000000 - PUSH\n0007 - 50000000 - LOAD\n0008 - 00000000 - PUSH\n000A - 31000000 - NE\n000B - 41150000 - JZ 21\n000D - 60000000 - IN\n000F - 00000000 - PUSH\n0011 - 51000000 - STORE\n0012 - 00000000 - PUSH\n0014 - 50000000 - LOAD\n0015 - 00000000 - PUSH\n0017 - 31000000 - NE\n0018 - 41140000 - JZ 20\n001A - 00000000 - PUSH\n001C - 50000000 - LOAD\n001D - 61010000 - OUT 1\n001F - 01000000 - POP\n0020 - 40030000 - JMP 3\n0022 - 44000000 - RET\n0023 - 43000000 - CALL\n0025 - 01000000 - POP\n0026 - 70000000 - HALT\n\nDATA MEMORY:\nAddress - Hex Dump - ASCII\n----------------------------------------\n0000 - 00 00 00 00                                      - ....\n"
 }
