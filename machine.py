@@ -3,6 +3,7 @@
 
 import argparse
 import sys
+import json
 from pathlib import Path
 
 from comp.processor import StackProcessor
@@ -17,8 +18,10 @@ def main() -> None:
     
     parser.add_argument("program_file", help="Файл с машинным кодом (.bin)")
     parser.add_argument("-d", "--data", help="Файл с данными для памяти данных")
-    parser.add_argument("-i", "--input", help="Файл с входными данными")
+    parser.add_argument("-i", "--input", help="Файл с входными данными (будет запланирован побайтно)")
     parser.add_argument("-o", "--output", help="Файл для вывода результатов")
+    parser.add_argument("--schedule", help="JSON-файл с расписанием прерываний/ввода")
+    parser.add_argument("--log-exec", help="Сохранить журнал тактов выполнения в файл")
     parser.add_argument("--max-cycles", type=int, default=1000000, help="Максимальное количество тактов")
     parser.add_argument("--verbose", action="store_true", help="Подробный вывод")
     
@@ -48,6 +51,36 @@ def main() -> None:
                 processor.load_data(data)
                 print(f"Загружено {len(data)} байт данных")
         
+        # Загрузка входа: расписание или файл
+        if args.schedule:
+            schedule_path = Path(args.schedule)
+            if not schedule_path.exists():
+                print(f"Ошибка: файл расписания '{args.schedule}' не найден", file=sys.stderr)
+                sys.exit(1)
+            try:
+                schedule = json.loads(schedule_path.read_text(encoding='utf-8'))
+            except Exception as e:
+                print(f"Ошибка чтения расписания: {e}", file=sys.stderr)
+                sys.exit(1)
+            # Ожидается ключ "input": список объектов {cycle:int, data:int}
+            for ev in schedule.get("input", []):
+                cycle = int(ev.get("cycle", 0))
+                data = ev.get("data", 0)
+                if isinstance(data, str) and len(data) > 0:
+                    data_val = ord(data[0])
+                else:
+                    data_val = int(data)
+                processor.schedule_input_event(cycle, data_val)
+        elif args.input:
+            input_path = Path(args.input)
+            if not input_path.exists():
+                print(f"Ошибка: файл входных данных '{args.input}' не найден", file=sys.stderr)
+                sys.exit(1)
+            content = input_path.read_text(encoding='utf-8')
+            # Планируем побайтно начиная с такта 0
+            for idx, ch in enumerate(content):
+                processor.schedule_input_event(idx, ord(ch))
+
         # Запускаем выполнение
         print(f"Запуск выполнения (максимум {args.max_cycles} тактов)...")
         result = processor.run(args.max_cycles)
@@ -79,6 +112,13 @@ def main() -> None:
                 output_path.write_text(output_text, encoding='utf-8')
                 print(f"\nВывод сохранен в: {args.output}")
         
+        # Сохранить журнал тактов
+        if args.log_exec:
+            log_path = Path(args.log_exec)
+            log_path.write_text("\n".join(result.get('execution_log', [])), encoding='utf-8')
+            if args.verbose:
+                print(f"Журнал тактов сохранён: {args.log_exec}")
+
         # Успешное завершение
         if result['state'] == 'halted':
             print("\nПрограмма завершена успешно.")

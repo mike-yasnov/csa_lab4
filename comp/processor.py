@@ -765,7 +765,7 @@ class StackProcessor:
                 _ = self.pop()
                 self.execute_instruction(Instruction(Opcode.OUT, 1))
         elif vector == 1:
-            # Возвратить 0 (заглушка ввода)
+            # Возвратить 0 
             self.push(0)
     
     def step(self) -> bool:
