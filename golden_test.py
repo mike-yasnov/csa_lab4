@@ -38,29 +38,30 @@ class GoldenTest:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
-            # Транслируем программу
+            # Транслируем программу (запускаем скрипт из каталога csa4_impl)
             cmd = [
-                sys.executable, "-m", "csa4_impl.translator",
+                sys.executable, "translator.py",
                 str(self.examples_dir / source_file),
-                "-o", str(temp_path / "program")
+                "-o", str(temp_path / "program"),
+                "--debug"
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir.parent)
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir)
             if result.returncode != 0:
                 return result.returncode, "", f"Translation error: {result.stderr}"
             
             # Запускаем машину
             cmd = [
-                sys.executable, "-m", "csa4_impl.machine",
+                sys.executable, "machine.py",
                 str(temp_path / "program.bin"),
                 "-d", str(temp_path / "program_data.bin")
             ]
             
             if input_data:
                 # Если есть входные данные
-                result = subprocess.run(cmd, input=input_data, capture_output=True, text=True, cwd=self.root_dir.parent)
+                result = subprocess.run(cmd, input=input_data, capture_output=True, text=True, cwd=self.root_dir)
             else:
-                result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir.parent)
+                result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir)
             
             # Нормализуем вывод
             normalized_stdout = self.normalize_output(result.stdout)

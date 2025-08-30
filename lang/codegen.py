@@ -4,8 +4,8 @@ from typing import Dict, List, Optional, Any, Union
 import struct
 
 from .ast_nodes import *
-from csa4_impl.isa.opcodes import Opcode
-from csa4_impl.isa.machine_code import MachineCode, Instruction
+from isa.opcodes import Opcode
+from isa.machine_code import MachineCode, Instruction
 
 
 class CodeGenError(Exception):
@@ -73,6 +73,7 @@ class CodeGenerator(ASTVisitor):
         # Встроенные функции
         self.builtin_functions = {
             'print': self._generate_print,
+            'print_number': self._generate_print_number,
             'read': self._generate_read,
             'readInt': self._generate_read_int,
             'len': self._generate_len,
@@ -451,6 +452,14 @@ class CodeGenerator(ASTVisitor):
             raise CodeGenError("read не принимает аргументов")
         
         self._emit(Opcode.IN, self.INPUT_PORT)
+
+    def _generate_print_number(self, arguments: List[Expression]) -> None:
+        """Генерировать код для print_number."""
+        if len(arguments) != 1:
+            raise CodeGenError("print_number принимает ровно один аргумент")
+        arguments[0].accept(self)
+        # Вывод числа через порт 0 (Digit), по соглашению с example_harv
+        self._emit(Opcode.OUT, 0)
     
     def _generate_read_int(self, arguments: List[Expression]) -> None:
         """Генерировать код для readInt."""

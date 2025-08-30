@@ -53,7 +53,7 @@ def main() -> None:
         result = processor.run(args.max_cycles)
         
         # Выводим результаты
-        print("=== РЕЗУЛЬТАТЫ ВЫПОЛНЕНИЯ ===")
+        print("\n=== РЕЗУЛЬТАТЫ ВЫПОЛНЕНИЯ ===")
         print(f"Состояние: {result['state']}")
         print(f"Выполнено инструкций: {result['instructions_executed']}")
         print(f"Затрачено тактов: {result['cycles_executed']}")

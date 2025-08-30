@@ -5,8 +5,8 @@ from typing import List, Dict, Optional, Any, Tuple, Union
 from enum import Enum
 import logging
 
-from csa4_impl.isa.opcodes import Opcode, INSTRUCTION_CYCLES, is_vector_operation
-from csa4_impl.isa.machine_code import Instruction, MachineCode
+from isa.opcodes import Opcode, INSTRUCTION_CYCLES, is_vector_operation
+from isa.machine_code import Instruction, MachineCode
 
 
 class ProcessorState(Enum):
@@ -345,6 +345,13 @@ class StackProcessor:
         
         # Логгер
         self.execution_log: List[str] = []
+
+        # Потактовая модель
+        self.current_instruction: Optional[Instruction] = None
+        self.remaining_cycles: int = 0
+
+        # Контроллер ввода-вывода (для расписания ввода)
+        self.io_controller = IOController()
     
     def load_program(self, instructions: List[Instruction]) -> None:
         """Загрузить программу в память команд."""
@@ -391,7 +398,7 @@ class StackProcessor:
         opcode = instruction.opcode
         operand = instruction.operand
         
-        # Логируем выполнение
+        # Логирование факта завершения инструкции (перед выполнением семантики на последнем такте)
         self.log_execution(instruction)
         
         try:
@@ -547,21 +554,25 @@ class StackProcessor:
             
             elif opcode == Opcode.OUT:
                 value = self.pop()
-                # Проверяем, что это строковый адрес для C-string
-                if operand == 1:  # Порт вывода строк
-                    if value < len(self.data_memory):
-                        # Читаем C-строку из памяти
-                        string_bytes = []
+                # Порт 1: вывод C-строки по адресу
+                if operand == 1:
+                    if 0 <= value < len(self.data_memory):
+                        string_bytes: List[int] = []
                         addr = value
                         while addr < len(self.data_memory) and self.data_memory[addr] != 0:
                             string_bytes.append(self.data_memory[addr])
                             addr += 1
-                        
-                        # Добавляем байты в вывод
                         self.output_buffer.extend(string_bytes)
                     else:
-                        self.output_buffer.append(value)
+                        # Если адрес вне памяти, выводим само значение как число
+                        for ch in str(value):
+                            self.output_buffer.append(ord(ch))
+                # Порт 0: вывод числа в ASCII (Digit)
+                elif operand == 0:
+                    for ch in str(value):
+                        self.output_buffer.append(ord(ch))
                 else:
+                    # По умолчанию выводим сырое значение (как байт)
                     self.output_buffer.append(value)
             
             # Прерывания
@@ -739,19 +750,40 @@ class StackProcessor:
             self.push(0)  # Пока что возвращаем 0
     
     def step(self) -> bool:
-        """Выполнить один шаг. Возвращает True если нужно продолжать."""
-        if self.state == ProcessorState.HALTED or self.pc >= len(self.instruction_memory):
+        """Выполнить один такт. Возвращает True если нужно продолжать."""
+        if self.state == ProcessorState.HALTED:
             return False
-        
-        instruction = self.instruction_memory[self.pc]
-        cycles = INSTRUCTION_CYCLES.get(Opcode(instruction.opcode), 1)
-        
-        continue_execution = self.execute_instruction(instruction)
-        
-        self.cycle_count += cycles
-        self.instruction_count += 1
-        
-        return continue_execution
+
+        # Обновляем контроллер ввода-вывода и принимаем события ввода
+        for int_type, data in self.io_controller.update(self.cycle_count):
+            if int_type == InterruptType.INPUT_READY:
+                self.input_buffer.append(data)
+
+        # Если программа закончилась и нет активной инструкции — останавливаемся
+        if self.current_instruction is None and self.pc >= len(self.instruction_memory):
+            self.state = ProcessorState.HALTED
+            return False
+
+        # Если нет активной инструкции — выборка следующей
+        if self.current_instruction is None:
+            self.current_instruction = self.instruction_memory[self.pc]
+            self.remaining_cycles = INSTRUCTION_CYCLES.get(Opcode(self.current_instruction.opcode), 1)
+
+        # Тик
+        self.remaining_cycles -= 1
+        self.cycle_count += 1
+
+        # Если это последний такт — выполняем семантику инструкции
+        if self.remaining_cycles == 0 and self.current_instruction is not None:
+            instruction = self.current_instruction
+            self.current_instruction = None
+            self.remaining_cycles = 0
+            continue_execution = self.execute_instruction(instruction)
+            self.instruction_count += 1
+            return continue_execution
+
+        # Продолжаем выполнение (инструкция ещё не завершена)
+        return True
     
     def run(self, max_cycles: int = 1000000) -> Dict[str, Any]:
         """Запустить выполнение программы."""
@@ -783,3 +815,7 @@ class StackProcessor:
         # Ограничиваем размер лога
         if len(self.execution_log) > 1000:
             self.execution_log = self.execution_log[-500:] 
+
+    def schedule_input_event(self, cycle: int, data: int) -> None:
+        """Запланировать поступление байта ввода на указанном такте."""
+        self.io_controller.schedule_input(cycle, data)
