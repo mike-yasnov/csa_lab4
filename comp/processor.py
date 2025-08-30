@@ -352,6 +352,12 @@ class StackProcessor:
 
         # Контроллер ввода-вывода (для расписания ввода)
         self.io_controller = IOController()
+
+        # Состояние системы прерываний
+        self.interrupts_enabled: bool = False
+        self.in_interrupt: bool = False
+        self.interrupt_handlers: Dict[int, int] = {}
+        self.pending_interrupts: List[Tuple[int, int]] = []  # (vector, data)
     
     def load_program(self, instructions: List[Instruction]) -> None:
         """Загрузить программу в память команд."""
@@ -584,6 +590,7 @@ class StackProcessor:
                 # Возврат из прерывания
                 if self.call_stack:
                     self.pc = self.call_stack.pop()
+                    self.in_interrupt = False
                     return True
                 else:
                     raise ProcessorError("Стек вызовов пуст при IRET")
@@ -739,15 +746,27 @@ class StackProcessor:
     
     def handle_software_interrupt(self, vector: int) -> None:
         """Обработать программное прерывание."""
-        # Простая реализация системных вызовов
-        if vector == 0:  # Системный вызов вывода
-            # Поп строку с стека и выведем
+        # Управление прерываниями / системные вызовы
+        if vector == 0x80:
+            # set_interrupt_handler(irq, handler_addr)
+            if len(self.stack) >= 2:
+                handler_addr = self.pop()
+                irq_vec = self.pop()
+                self.interrupt_handlers[int(irq_vec)] = int(handler_addr)
+            else:
+                raise ProcessorError("Недостаточно параметров для установки обработчика")
+        elif vector == 0x81:
+            self.interrupts_enabled = True
+        elif vector == 0x82:
+            self.interrupts_enabled = False
+        elif vector == 0:
+            # Печать строки по адресу на стеке через порт 1
             if self.stack:
-                addr = self.pop()
+                _ = self.pop()
                 self.execute_instruction(Instruction(Opcode.OUT, 1))
-        elif vector == 1:  # Системный вызов ввода
-            # Запросить ввод (симуляция)
-            self.push(0)  # Пока что возвращаем 0
+        elif vector == 1:
+            # Возвратить 0 (заглушка ввода)
+            self.push(0)
     
     def step(self) -> bool:
         """Выполнить один такт. Возвращает True если нужно продолжать."""
@@ -758,14 +777,28 @@ class StackProcessor:
         for int_type, data in self.io_controller.update(self.cycle_count):
             if int_type == InterruptType.INPUT_READY:
                 self.input_buffer.append(data)
+                # Формируем запрос прерывания на вектор 0 (ввод готов)
+                self.pending_interrupts.append((InterruptType.INPUT_READY.value, data))
 
         # Если программа закончилась и нет активной инструкции — останавливаемся
         if self.current_instruction is None and self.pc >= len(self.instruction_memory):
             self.state = ProcessorState.HALTED
             return False
 
-        # Если нет активной инструкции — выборка следующей
+        # Если нет активной инструкции — обработать прерывание и выбрать следующую
         if self.current_instruction is None:
+            # Вход в прерывание между инструкциями
+            if self.interrupts_enabled and (not self.in_interrupt) and self.pending_interrupts:
+                vector, _ = self.pending_interrupts.pop(0)
+                handler = self.interrupt_handlers.get(vector)
+                if handler is not None:
+                    self.call_stack.append(self.pc)
+                    self.pc = handler
+                    self.in_interrupt = True
+                    self.execution_log.append(
+                        f"Cycle {self.cycle_count:06d}: ENTER_IRQ vec={vector} -> PC={self.pc:04X}"
+                    )
+
             self.current_instruction = self.instruction_memory[self.pc]
             self.remaining_cycles = INSTRUCTION_CYCLES.get(Opcode(self.current_instruction.opcode), 1)
 
