@@ -190,9 +190,8 @@ class Lexer:
             if not current:
                 break
             
-            # Перевод строки
+            # Перевод строки (игнорируем как отдельный токен)
             if current == '\n':
-                self.tokens.append(Token(TokenType.NEWLINE, current, self.line, self.column))
                 self.advance()
             
             # Комментарии

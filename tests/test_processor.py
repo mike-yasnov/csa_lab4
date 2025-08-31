@@ -9,7 +9,7 @@ from isa.opcodes import Opcode
 PUSH_VALUE = 42
 SUM_5_3 = 8
 MUL_RESULT = 16
-EXEC_COUNT_FIVE = 5
+EXEC_COUNT_SIX = 6
 EXEC_COUNT_FOUR = 4
 FINAL_PC_AFTER_HALT = 3
 
@@ -85,7 +85,7 @@ def test_output() -> None:
     
     instructions = [
         Instruction(Opcode.PUSH, 65),  # ASCII 'A'
-        Instruction(Opcode.OUT, 1),    # output to port 1
+        Instruction(Opcode.OUT, 2),    # output single char to port 2
         Instruction(Opcode.HALT),
     ]
     
@@ -115,7 +115,7 @@ def test_complex_calculation() -> None:
     assert result['state'] == 'halted'
     assert len(processor.stack) == 1
     assert processor.stack[0] == MUL_RESULT
-    assert result['instructions_executed'] == EXEC_COUNT_FIVE
+    assert result['instructions_executed'] == EXEC_COUNT_SIX
 
 
 def test_execution_stats() -> None:
