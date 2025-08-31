@@ -81,6 +81,7 @@ class CodeGenerator(ASTVisitor):
             'readInt': self._generate_read_int,
             'len': self._generate_len,
             'chr': self._generate_chr,
+            'putc': self._generate_putc,
             'v_load': self._generate_v_load,
             'v_add': self._generate_v_add,
             'v_dot': self._generate_v_dot,
@@ -151,6 +152,11 @@ class CodeGenerator(ASTVisitor):
     
     def visit_identifier(self, node: Identifier) -> Any:
         """Посетить идентификатор."""
+        # Сначала проверяем, не является ли это именем функции (для передачи адреса функции)
+        if node.name in self.symbols.functions:
+            self._emit(Opcode.PUSH, self.symbols.functions[node.name])
+            return
+
         if not self.symbols.exists(node.name):
             raise CodeGenError(f"Неопределенная переменная: {node.name}")
         
@@ -259,8 +265,13 @@ class CodeGenerator(ASTVisitor):
     
     def visit_expression_statement(self, node: ExpressionStatement) -> Any:
         """Посетить выражение как оператор."""
+        # Для вызовов функций не выбрасываем результат принудительно,
+        # так как builtin-ы сами управляют стеком
+        if isinstance(node.expression, FunctionCall):
+            node.expression.accept(self)
+            return
         node.expression.accept(self)
-        self._emit(Opcode.POP)  # Убираем результат со стека
+        self._emit(Opcode.POP)
     
     def visit_var_declaration(self, node: VarDeclaration) -> Any:
         """Посетить объявление переменной."""
@@ -544,7 +555,7 @@ class CodeGenerator(ASTVisitor):
         self._emit(Opcode.DUP); self._emit(Opcode.PUSH, 10); self._emit(Opcode.EQ); j_end_nl = self._emit(Opcode.JNZ, 0)
         # addr = p; STOREB(addr, ch)
         self._emit(Opcode.PUSH, p_addr)
-        self._emit(Opcode.LOAD)               # ch, p
+        self._emit(Opcode.LOAD)               # ch, p  (на вершине p)
         self._emit(Opcode.STOREB)
         # p = p + 1
         self._emit(Opcode.PUSH, p_addr)
@@ -584,6 +595,13 @@ class CodeGenerator(ASTVisitor):
         arguments[0].accept(self)
         # Для простоты возвращаем число как есть (код символа)
         # В реальной реализации могли бы преобразовывать в строку
+
+    def _generate_putc(self, arguments: List[Expression]) -> None:
+        """Вывод одного символа (код в TOS) через порт 2."""
+        if len(arguments) != 1:
+            raise CodeGenError("putc принимает ровно один аргумент")
+        arguments[0].accept(self)
+        self._emit(Opcode.OUT, 2)
 
     # Векторные builtin'ы (тонкая обёртка над V_* инструкциями CPU)
     def _generate_v_load(self, arguments: List[Expression]) -> None:

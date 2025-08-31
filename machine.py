@@ -51,7 +51,7 @@ def main() -> None:
                 processor.load_data(data)
                 print(f"Загружено {len(data)} байт данных")
         
-        # Загрузка входа: расписание или файл
+        # Загрузка входа: расписание, файл или stdin (если передан через пайп)
         if args.schedule:
             schedule_path = Path(args.schedule)
             if not schedule_path.exists():
@@ -80,6 +80,16 @@ def main() -> None:
             # Немедленно наполняем буфер ввода для синхронного IN
             for ch in content:
                 processor.input_buffer.append(ord(ch))
+        else:
+            # Если вход не указан, но в stdin есть данные (запуск через пайп), читаем их
+            try:
+                if not sys.stdin.isatty():
+                    content = sys.stdin.read()
+                    for ch in content:
+                        processor.input_buffer.append(ord(ch))
+            except Exception:
+                # Безопасно игнорируем ошибки stdin, оставляя буфер пустым
+                pass
 
         # Запускаем выполнение
         print(f"Запуск выполнения (максимум {args.max_cycles} тактов)...")

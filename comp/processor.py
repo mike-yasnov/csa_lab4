@@ -493,16 +493,34 @@ class StackProcessor:
                 result = 1 if a == b else 0
                 self.push(result)
             
+            elif opcode == Opcode.NE:
+                b = self.pop()
+                a = self.pop()
+                result = 1 if a != b else 0
+                self.push(result)
+            
             elif opcode == Opcode.LT:
                 b = self.pop()
                 a = self.pop()
                 result = 1 if a < b else 0
                 self.push(result)
             
+            elif opcode == Opcode.LE:
+                b = self.pop()
+                a = self.pop()
+                result = 1 if a <= b else 0
+                self.push(result)
+            
             elif opcode == Opcode.GT:
                 b = self.pop()
                 a = self.pop()
                 result = 1 if a > b else 0
+                self.push(result)
+            
+            elif opcode == Opcode.GE:
+                b = self.pop()
+                a = self.pop()
+                result = 1 if a >= b else 0
                 self.push(result)
             
             # Переходы
@@ -580,9 +598,6 @@ class StackProcessor:
                             string_bytes.append(self.data_memory[addr])
                             addr += 1
                         self.output_buffer.extend(string_bytes)
-                    elif 0 <= value <= 255:
-                        # Вывод одного символа по его коду
-                        self.output_buffer.append(value)
                     else:
                         # Если адрес вне памяти, выводим само значение как число
                         for ch in str(value):
@@ -591,6 +606,9 @@ class StackProcessor:
                 elif operand == 0:
                     for ch in str(value):
                         self.output_buffer.append(ord(ch))
+                # Порт 2: одиночный символ (char)
+                elif operand == 2:
+                    self.output_buffer.append(value & 0xFF)
                 else:
                     # По умолчанию выводим сырое значение (как байт)
                     self.output_buffer.append(value)
@@ -721,9 +739,11 @@ class StackProcessor:
                     address = self.pop()
                     
                     elements = []
+                    # Память векторов хранится как [size][elem0][elem1]..., пропускаем заголовок size (4 байта)
+                    base = address + 4
                     for i in range(min(length, self.vector_unit.max_vector_length)):
-                        if address + i * 4 + 3 < len(self.data_memory):
-                            word = self.read_memory_word(address + i * 4)
+                        if base + i * 4 + 3 < len(self.data_memory):
+                            word = self.read_memory_word(base + i * 4)
                             elements.append(word)
                         else:
                             break

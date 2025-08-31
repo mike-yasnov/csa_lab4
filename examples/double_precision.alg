@@ -1,32 +1,32 @@
-// Арифметика двойной точности: работа с 64-битными числами на 32-битной машине
-// Представляем 64-битное число как пару 32-битных (high, low)
+// Double-precision arithmetic: 64-bit numbers on 32-bit machine
+// Represent 64-bit number as pair of 32-bit (high, low)
 
 function main() {
-    print("Демонстрация 64-битной арифметики:");
+    print("Demo: 64-bit arithmetic");
     
-    // Число 1: 0x00000001_FFFFFFFF (8589934591)
+    // Number 1: 0x00000001_FFFFFFFF (8589934591)
     var a_high = 1;
-    var a_low = 1000000;  // Большое но допустимое число
+    var a_low = 1000000;  // Large but valid number
     
-    // Число 2: 0x00000002_00000001 (8589934593)  
+    // Number 2: 0x00000002_00000001 (8589934593)  
     var b_high = 2;
     var b_low = 1;
     
-    print("Число A: high=");
+    print("Number A: high=");
     print_number(a_high);
     print(" low=");
     print_number(a_low);
     
-    print("Число B: high=");
+    print("Number B: high=");
     print_number(b_high);
     print(" low=");
     print_number(b_low);
     
-    // Сложение 64-битных чисел
+    // Addition of 64-bit numbers
     var result_low = a_low + b_low;
     var carry = 0;
     
-    // Проверяем переполнение младших разрядов
+    // Check low-part overflow
     if (result_low < a_low) {
         carry = 1;
     }
@@ -38,7 +38,7 @@ function main() {
     print(" low=");
     print_number(result_low);
     
-    // Умножение на константу
+    // Multiply by constant
     var mult_low = a_low * 3;
     var mult_high = a_high * 3;
     
@@ -47,7 +47,7 @@ function main() {
     print(" low=");
     print_number(mult_low);
     
-    print("64-битная арифметика завершена!");
+    print("64-bit arithmetic done!");
 }
 
 main(); 

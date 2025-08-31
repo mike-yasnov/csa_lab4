@@ -1,34 +1,26 @@
-// Векторный тест с использованием аппаратных V_* инструкций через builtin-обёртки
+// Vector test using V_* instructions via builtins
 
 function main() {
-    print("Векторный тест V_*");
+    print("Vector test V_*");
 
-    // Вектора как статические данные
+    // Vectors as static data
     var v1 = <| 1, 2, 3, 4 |>;
     var v2 = <| 5, 6, 7, 8 |>;
 
-    // Загрузим их во векторные регистры 0 и 1, длина 4
+    // Load into vector registers 0 and 1, length 4
     v_load(v1, 4, 0);
     v_load(v2, 4, 1);
 
-    // Сложение: r2 = r0 + r1
+    // Addition: r2 = r0 + r1
     v_add(0, 1, 2);
 
-    // Скалярное произведение r0 и r1
-    v_dot(0, 1);
+    // Dot product r0 and r1
     print("dot(v1,v2)=");
-    print_number(0); // результат на вершине стека
+    print_number(v_dot(0, 1));
 
     print("; sum r2[0]+...+r2[3]=");
-    // Запишем r2 в память и вручную просуммируем 4 элемента
-    var buf = 0; // выделим 4*4 байта под вывод r2
-    v_store(2, buf);
-    var s = 0;
-    s = s + buf[0];
-    s = s + buf[1];
-    s = s + buf[2];
-    s = s + buf[3];
-    print_number(s);
+    // Sum elements via vector unit
+    print_number(v_sum(2));
 }
 
 main();

@@ -1,27 +1,27 @@
-// Демонстрация системы прерываний (упрощённая версия)
+// Interrupt (trap) demo
 
-var interrupt_count = 0;
+var counter = 0;
 
-function main() {
-    print("Демонстрация системы прерываний");
-    
-    var counter = 0;
-    
-    // Основной цикл работы
-    while (counter < 100) {
-        counter = counter + 1;
-        
-        // Периодически выводим состояние
-        if (counter % 20 == 0) {
-            print("Main loop: counter=");
-            print(counter);
-        }
-        
-        // Имитация полезной работы
-        var dummy = counter * 2 + 1;
-    }
-    
-    print("Основной цикл завершён");
+function timer_handler() {
+    counter = counter + 1;
+    print("INTERRUPT ");
 }
 
-main(); 
+function main() {
+    print("Interrupt demo start\n");
+    // IRQ0 -> timer_handler
+    set_interrupt_handler(0, timer_handler);
+    enable_interrupts();
+
+    // Busy loop
+    var i = 0;
+    while (i < 5) {
+        i = i + 1;
+    }
+
+    print("Interrupts processed: ");
+    print_number(counter);
+}
+
+main();
+

@@ -1,19 +1,19 @@
-// Программа sort - сортировка (упрощённая версия)
+// Program sort - simple sorting of three numbers
 
 function main() {
-    print("Сортировка трёх чисел:");
+    print("Sorting three numbers:");
     
-    // Упрощённая версия - сортируем 3 числа
+    // Simplified version - sort 3 numbers
     var a = 30;
     var b = 10; 
     var c = 20;
     
-    print("До сортировки:");
+    print("Before sorting:");
     print_number(a);
     print_number(b);
     print_number(c);
     
-    // Простая сортировка тремя сравнениями
+    // Simple sort with three comparisons
     if (a > b) {
         var temp = a;
         a = b;
@@ -32,7 +32,7 @@ function main() {
         b = temp;
     }
     
-    print("После сортировки:");
+    print("After sorting:");
     print_number(a);
     print_number(b);
     print_number(c);
