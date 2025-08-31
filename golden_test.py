@@ -32,7 +32,7 @@ class GoldenTest:
         
         return output
     
-    def run_test(self, test_name: str, source_file: str, input_data: str = "") -> Tuple[int, str, str, str, str]:
+    def run_test(self, test_name: str, source_file: str, input_data: str = "", schedule_data: Optional[Dict] = None) -> Tuple[int, str, str, str, str]:
         """Запустить один тест и вернуть код возврата, stdout, stderr, exec_log, debug_listing."""
         
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -62,6 +62,11 @@ class GoldenTest:
                 "-d", str(temp_path / "program_data.bin"),
                 "--log-exec", str(temp_path / "exec.log")
             ]
+            # Если задано расписание, сохраняем его во временный файл и передаем
+            if schedule_data is not None:
+                schedule_path = temp_path / "schedule.json"
+                schedule_path.write_text(json.dumps(schedule_data), encoding='utf-8')
+                cmd.extend(["--schedule", str(schedule_path)])
             
             if input_data:
                 # Если есть входные данные
@@ -148,41 +153,50 @@ class GoldenTest:
     def generate_goldens(self) -> None:
         """Сгенерировать все эталонные тесты."""
         tests = [
-            ("hello", "hello.alg", ""),
-            ("simple_vector", "simple_vector.alg", ""),
-            ("euler6", "euler6.alg", ""),
-            ("cat", "cat.alg", "Hello\nWorld\n"),
-            ("hello_user_name", "hello_user_name.alg", "A"),
-            ("sort", "sort.alg", ""),
-            ("double_precision", "double_precision.alg", ""),
-            ("interrupt_demo", "interrupt_demo.alg", ""),
+            ("hello", "hello.alg", "", None),
+            ("simple_vector", "simple_vector.alg", "", None),
+            ("euler6", "euler6.alg", "", None),
+            ("cat", "cat.alg", "Hello\nWorld\n", None),
+            ("hello_user_name", "hello_user_name.alg", "A\n", None),
+            ("sort", "sort.alg", "", None),
+            ("double_precision", "double_precision.alg", "", None),
+            # interrupt schedule: input tokens at cycles 10,20,30
+            ("interrupt_demo", "interrupt_demo.alg", "", {"input": [
+                {"cycle": 10, "data": "X"},
+                {"cycle": 20, "data": "Y"},
+                {"cycle": 30, "data": "Z"}
+            ]}),
         ]
         
         print("Генерация эталонных тестов...")
         
-        for test_name, source_file, input_data in tests:
+        for test_name, source_file, input_data, schedule in tests:
             print(f"\nГенерация {test_name}...")
-            result = self.run_test(test_name, source_file, input_data)
+            result = self.run_test(test_name, source_file, input_data, schedule)
             self.save_golden(test_name, *result)
     
     def run_all_tests(self) -> bool:
         """Запустить все тесты."""
         tests = [
-            ("hello", "hello.alg", ""),
-            ("simple_vector", "simple_vector.alg", ""),
-            ("euler6", "euler6.alg", ""),
-            ("cat", "cat.alg", "Hello\nWorld\n"),
-            ("hello_user_name", "hello_user_name.alg", "A"),
-            ("sort", "sort.alg", ""),
-            ("double_precision", "double_precision.alg", ""),
-            ("interrupt_demo", "interrupt_demo.alg", ""),
+            ("hello", "hello.alg", "", None),
+            ("simple_vector", "simple_vector.alg", "", None),
+            ("euler6", "euler6.alg", "", None),
+            ("cat", "cat.alg", "Hello\nWorld\n", None),
+            ("hello_user_name", "hello_user_name.alg", "A\n", None),
+            ("sort", "sort.alg", "", None),
+            ("double_precision", "double_precision.alg", "", None),
+            ("interrupt_demo", "interrupt_demo.alg", "", {"input": [
+                {"cycle": 10, "data": "X"},
+                {"cycle": 20, "data": "Y"},
+                {"cycle": 30, "data": "Z"}
+            ]}),
         ]
         
         print("Запуск golden тестов...")
         all_passed = True
         
-        for test_name, source_file, input_data in tests:
-            result = self.run_test(test_name, source_file, input_data)
+        for test_name, source_file, input_data, schedule in tests:
+            result = self.run_test(test_name, source_file, input_data, schedule)
             if not self.compare_results(test_name, result):
                 all_passed = False
         
