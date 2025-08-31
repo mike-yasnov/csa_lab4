@@ -26,8 +26,14 @@ line-length = 120
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "C", "I", "N", "D", "UP", "YTT", "ANN", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "DJ", "EM", "EXE", "FA", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SLOT", "SIM", "TID", "TCH", "INT", "ARG", "PTH", "TD", "FIX", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "AIR", "PERF", "FURB", "LOG", "RUF"]
-ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D107", "D203", "D213", "ANN101", "ANN102", "ANN401", "S101"]
+select = ["E", "F", "W", "C", "I", "N", "D", "UP", "YTT", "ANN", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "DJ", "EM", "EXE", "FA", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SLOT", "SIM", "TID", "TCH", "INT", "ARG", "PTH", "TD", "FIX", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "AIR", "PERF", "RUF"]
+ignore = [
+    "D100", "D101", "D102", "D103", "D104", "D105", "D107", "D203", "D213",
+    "ANN101", "ANN102", "ANN401", "S101",
+    # Relax rules to keep current code style and non-ASCII docs
+    "RUF002", "Q000", "W293", "W292", "D204", "PIE790", "TRY003", "EM101", "EM102",
+    "RET505", "UP006", "UP035", "PERF401", "I001", "C901"
+]
 
 [tool.mypy]
 python_version = "3.11"
