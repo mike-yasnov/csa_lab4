@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Computer Systems Architecture Lab 4 Implementation"
 authors = ["Михаил Яснов <mike_yasnov@mail.ru>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
