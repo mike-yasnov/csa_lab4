@@ -1,11 +1,34 @@
 """Генератор кода для стековой архитектуры с векторными расширениями."""
 
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Any
 import struct
 
-from .ast_nodes import *
+from .ast_nodes import (
+    ASTVisitor,
+    Program,
+    FunctionDeclaration,
+    VarDeclaration,
+    IfStatement,
+    WhileStatement,
+    ForStatement,
+    ReturnStatement,
+    Block,
+    Identifier,
+    Assignment,
+    ExpressionStatement,
+    Expression,
+    BinaryOperation,
+    UnaryOperation,
+    ArrayAccess,
+    FunctionCall,
+    BooleanLiteral,
+    NullLiteral,
+    NumberLiteral,
+    StringLiteral,
+    VectorLiteral,
+)
 from isa.opcodes import Opcode
-from isa.machine_code import MachineCode, Instruction
+from isa.machine_code import MachineCode
 
 
 class CodeGenError(Exception):
@@ -44,10 +67,7 @@ class SymbolTable:
     
     def exists(self, name: str) -> bool:
         """Проверить, существует ли переменная."""
-        for scope in reversed(self.scopes):
-            if name in scope:
-                return True
-        return False
+        return any(name in scope for scope in reversed(self.scopes))
     
     def get_temp_var(self) -> str:
         """Получить имя временной переменной."""
@@ -205,7 +225,7 @@ class CodeGenerator(ASTVisitor):
         
         if node.operator == '-':
             self._emit(Opcode.NEG)
-        elif node.operator == '!' or node.operator == 'not':
+        elif node.operator in {'!', 'not'}:
             self._emit(Opcode.NOT)
         else:
             raise CodeGenError(f"Неизвестная унарная операция: {node.operator}")
@@ -435,7 +455,7 @@ class CodeGenerator(ASTVisitor):
         
         # Параметры уже на стеке (переданы при вызове)
         # Определяем их в локальной области видимости
-        for i, param in enumerate(reversed(node.parameters)):
+        for _i, param in enumerate(reversed(node.parameters)):
             # Выделяем место в памяти для параметра
             addr = self.machine_code.add_word(0)
             self._emit(Opcode.PUSH, addr)
@@ -511,17 +531,24 @@ class CodeGenerator(ASTVisitor):
         self._emit(Opcode.PUSH, addr)
 
     def _generate_read_line(self, arguments: List[Expression]) -> None:
-        """Читать до \n/0 и выводить посимвольно (прежняя простая версия)."""
+        r"""Читать до \n/0 и выводить посимвольно (прежняя простая версия)."""
         if len(arguments) != 0:
             raise CodeGenError("readLine не принимает аргументов")
         loop_start = len(self.machine_code.instructions)
         self._emit(Opcode.IN, self.INPUT_PORT)
-        self._emit(Opcode.DUP); self._emit(Opcode.PUSH, 0); self._emit(Opcode.EQ); j0 = self._emit(Opcode.JNZ, 0)
-        self._emit(Opcode.DUP); self._emit(Opcode.PUSH, 10); self._emit(Opcode.EQ); j1 = self._emit(Opcode.JNZ, 0)
+        self._emit(Opcode.DUP)
+        self._emit(Opcode.PUSH, 0)
+        self._emit(Opcode.EQ)
+        j0 = self._emit(Opcode.JNZ, 0)
+        self._emit(Opcode.DUP)
+        self._emit(Opcode.PUSH, 10)
+        self._emit(Opcode.EQ)
+        j1 = self._emit(Opcode.JNZ, 0)
         self._emit(Opcode.OUT, self.OUTPUT_PORT)
         self._emit(Opcode.JMP, loop_start)
         end = len(self.machine_code.instructions)
-        self._patch_address(j0, end); self._patch_address(j1, end)
+        self._patch_address(j0, end)
+        self._patch_address(j1, end)
         self._emit(Opcode.POP)
         self._emit(Opcode.PUSH, 0)
 
@@ -547,22 +574,25 @@ class CodeGenerator(ASTVisitor):
         self._emit(Opcode.SUB)                # maxLen-1
         self._emit(Opcode.GE)
         j_end_full = self._emit(Opcode.JNZ, 0)
-        # ch = IN(0)
+        # ch input and checks
         self._emit(Opcode.IN, self.INPUT_PORT)
-        # if ch == 0 -> end
-        self._emit(Opcode.DUP); self._emit(Opcode.PUSH, 0); self._emit(Opcode.EQ); j_end_zero = self._emit(Opcode.JNZ, 0)
-        # if ch == 10 -> end
-        self._emit(Opcode.DUP); self._emit(Opcode.PUSH, 10); self._emit(Opcode.EQ); j_end_nl = self._emit(Opcode.JNZ, 0)
-        # addr = p; STOREB(addr, ch)
+        self._emit(Opcode.DUP)
+        self._emit(Opcode.PUSH, 0)
+        self._emit(Opcode.EQ)
+        j_end_zero = self._emit(Opcode.JNZ, 0)
+        self._emit(Opcode.DUP)
+        self._emit(Opcode.PUSH, 10)
+        self._emit(Opcode.EQ)
+        j_end_nl = self._emit(Opcode.JNZ, 0)
         self._emit(Opcode.PUSH, p_addr)
         self._emit(Opcode.LOAD)               # ch, p  (на вершине p)
         self._emit(Opcode.STOREB)
         # p = p + 1
         self._emit(Opcode.PUSH, p_addr)
-        self._emit(Opcode.LOAD)               # p
+        self._emit(Opcode.LOAD)
         self._emit(Opcode.PUSH, 1)
-        self._emit(Opcode.ADD)                # p+1
-        self._emit(Opcode.PUSH, p_addr)       # p+1, p_addr
+        self._emit(Opcode.ADD)
+        self._emit(Opcode.PUSH, p_addr)
         self._emit(Opcode.STORE)
         # loop
         self._emit(Opcode.JMP, loop_start)
@@ -571,9 +601,9 @@ class CodeGenerator(ASTVisitor):
         self._patch_address(j_end_full, end_addr)
         self._patch_address(j_end_zero, end_addr)
         self._patch_address(j_end_nl, end_addr)
-        # *p = 0 (терминатор)
+        # *p = 0 (terminator)
         self._emit(Opcode.PUSH, p_addr)
-        self._emit(Opcode.LOAD)               # p
+        self._emit(Opcode.LOAD)
         self._emit(Opcode.PUSH, 0)
         self._emit(Opcode.SWAP)               # 0, p
         self._emit(Opcode.STOREB)

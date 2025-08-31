@@ -1,7 +1,8 @@
-"""Работа с машинным кодом в бинарном формате."""
+"""Work with machine code in binary format."""
 
 import struct
-from typing import BinaryIO, List, Tuple
+from pathlib import Path
+from typing import List
 
 from .opcodes import Opcode, get_opcode_name, INSTRUCTION_SIZES
 
@@ -63,25 +64,28 @@ class MachineCode:
         return self.add_data(text.encode('utf-8') + b'\0')
     
     def save_instruction_memory(self, file_path: str) -> None:
-        """Сохранить память команд в бинарный файл."""
-        with open(file_path, 'wb') as f:
+        """Save instruction memory to a binary file."""
+        path = Path(file_path)
+        with path.open('wb') as f:
             for instr in self.instructions:
                 f.write(instr.to_bytes())
     
     def save_data_memory(self, file_path: str) -> None:
-        """Сохранить память данных в бинарный файл."""
-        with open(file_path, 'wb') as f:
+        """Save data memory to a binary file."""
+        path = Path(file_path)
+        with path.open('wb') as f:
             f.write(self.data_memory)
     
     def save_debug_listing(self, file_path: str) -> None:
-        """Сохранить отладочную информацию в текстовый файл."""
-        with open(file_path, 'w', encoding='utf-8') as f:
+        """Save debug listing to a text file."""
+        path = Path(file_path)
+        with path.open('w', encoding='utf-8') as f:
             f.write("INSTRUCTION MEMORY:\n")
             f.write("Address - Hex Code - Mnemonic\n")
             f.write("-" * 40 + "\n")
             
             addr = 0
-            for i, instr in enumerate(self.instructions):
+            for _i, instr in enumerate(self.instructions):
                 hex_code = instr.to_bytes().hex().upper()
                 if instr.operand != 0:
                     mnemonic = f"{get_opcode_name(instr.opcode)} {instr.operand}"
@@ -95,34 +99,39 @@ class MachineCode:
             f.write("Address - Hex Dump - ASCII\n")
             f.write("-" * 40 + "\n")
             
-            # Вывод данных по 16 байт в строке
+            # Dump data in 16-byte rows
             for i in range(0, len(self.data_memory), 16):
                 chunk = self.data_memory[i:i+16]
                 hex_dump = ' '.join(f"{b:02X}" for b in chunk)
-                ascii_dump = ''.join(chr(b) if 32 <= b <= 126 else '.' for b in chunk)
+                ascii_min = 32
+                ascii_max = 126
+                ascii_dump = ''.join(chr(b) if ascii_min <= b <= ascii_max else '.' for b in chunk)
                 f.write(f"{i:04X} - {hex_dump:<48} - {ascii_dump}\n")
     
     @classmethod
     def load_instruction_memory(cls, file_path: str) -> List[Instruction]:
-        """Загрузить память команд из бинарного файла."""
-        instructions = []
-        with open(file_path, 'rb') as f:
+        """Load instruction memory from a binary file."""
+        word_size = 4
+        instructions: List[Instruction] = []
+        path = Path(file_path)
+        with path.open('rb') as f:
             while True:
-                data = f.read(4)  # 4 байта на инструкцию
-                if len(data) < 4:
+                data = f.read(word_size)
+                if len(data) < word_size:
                     break
                 instructions.append(Instruction.from_bytes(data))
         return instructions
     
     @classmethod
     def load_data_memory(cls, file_path: str) -> bytearray:
-        """Загрузить память данных из бинарного файла."""
-        with open(file_path, 'rb') as f:
+        """Load data memory from a binary file."""
+        path = Path(file_path)
+        with path.open('rb') as f:
             return bytearray(f.read())
 
 
 def format_instruction_trace(pc: int, instruction: Instruction) -> str:
-    """Форматировать инструкцию для вывода в трассировке."""
+    """Format instruction for execution trace output."""
     if instruction.operand != 0:
         return f"PC={pc:04X}: {get_opcode_name(instruction.opcode)} {instruction.operand}"
-    return f"PC={pc:04X}: {get_opcode_name(instruction.opcode)}" 
+    return f"PC={pc:04X}: {get_opcode_name(instruction.opcode)}"

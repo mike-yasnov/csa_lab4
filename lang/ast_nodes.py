@@ -1,7 +1,7 @@
-"""Узлы абстрактного синтаксического дерева (AST) для алголичного языка."""
+"""AST nodes for the Alg-like language."""
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Union
+from typing import Any, List, Union
 from dataclasses import dataclass
 
 
@@ -27,8 +27,8 @@ class Statement(ASTNode):
 # Выражения
 @dataclass
 class NumberLiteral(Expression):
-    """Числовой литерал."""
-    value: Union[int, float]
+    """Numeric literal."""
+    value: int | float
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
         return visitor.visit_number_literal(self)
@@ -36,7 +36,7 @@ class NumberLiteral(Expression):
 
 @dataclass
 class StringLiteral(Expression):
-    """Строковый литерал."""
+    """String literal."""
     value: str
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
@@ -45,7 +45,7 @@ class StringLiteral(Expression):
 
 @dataclass
 class BooleanLiteral(Expression):
-    """Булев литерал."""
+    """Boolean literal."""
     value: bool
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
@@ -54,7 +54,7 @@ class BooleanLiteral(Expression):
 
 @dataclass
 class NullLiteral(Expression):
-    """Null литерал."""
+    """Null literal."""
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
         return visitor.visit_null_literal(self)
@@ -62,7 +62,7 @@ class NullLiteral(Expression):
 
 @dataclass
 class Identifier(Expression):
-    """Идентификатор переменной."""
+    """Variable identifier."""
     name: str
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
@@ -71,7 +71,7 @@ class Identifier(Expression):
 
 @dataclass
 class BinaryOperation(Expression):
-    """Бинарная операция."""
+    """Binary operation."""
     left: Expression
     operator: str
     right: Expression
@@ -82,7 +82,7 @@ class BinaryOperation(Expression):
 
 @dataclass
 class UnaryOperation(Expression):
-    """Унарная операция."""
+    """Unary operation."""
     operator: str
     operand: Expression
     
@@ -92,7 +92,7 @@ class UnaryOperation(Expression):
 
 @dataclass
 class FunctionCall(Expression):
-    """Вызов функции."""
+    """Function call."""
     name: str
     arguments: List[Expression]
     
@@ -102,7 +102,7 @@ class FunctionCall(Expression):
 
 @dataclass
 class VectorLiteral(Expression):
-    """Векторный литерал <| 1, 2, 3, 4 |>."""
+    """Vector literal like <| 1, 2, 3, 4 |>."""
     elements: List[Expression]
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
@@ -111,7 +111,7 @@ class VectorLiteral(Expression):
 
 @dataclass
 class ArrayAccess(Expression):
-    """Доступ к элементу массива."""
+    """Array element access."""
     array: Expression
     index: Expression
     
@@ -122,7 +122,7 @@ class ArrayAccess(Expression):
 # Операторы
 @dataclass
 class ExpressionStatement(Statement):
-    """Выражение как оператор."""
+    """Expression used as a statement."""
     expression: Expression
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
@@ -131,9 +131,9 @@ class ExpressionStatement(Statement):
 
 @dataclass
 class VarDeclaration(Statement):
-    """Объявление переменной."""
+    """Variable declaration."""
     name: str
-    initializer: Optional[Expression] = None
+    initializer: Expression | None = None
     is_const: bool = False
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
@@ -142,7 +142,7 @@ class VarDeclaration(Statement):
 
 @dataclass
 class Assignment(Statement):
-    """Присваивание."""
+    """Assignment."""
     target: Identifier
     value: Expression
     operator: str = "="  # =, +=, -=
@@ -153,7 +153,7 @@ class Assignment(Statement):
 
 @dataclass
 class Block(Statement):
-    """Блок операторов."""
+    """Block of statements."""
     statements: List[Statement]
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
@@ -162,10 +162,10 @@ class Block(Statement):
 
 @dataclass
 class IfStatement(Statement):
-    """Условный оператор."""
+    """If statement."""
     condition: Expression
     then_stmt: Statement
-    else_stmt: Optional[Statement] = None
+    else_stmt: Statement | None = None
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
         return visitor.visit_if_statement(self)
@@ -173,7 +173,7 @@ class IfStatement(Statement):
 
 @dataclass
 class WhileStatement(Statement):
-    """Цикл while."""
+    """While loop."""
     condition: Expression
     body: Statement
     
@@ -183,10 +183,10 @@ class WhileStatement(Statement):
 
 @dataclass
 class ForStatement(Statement):
-    """Цикл for."""
-    init: Optional[Statement]
-    condition: Optional[Expression]
-    update: Optional[Expression]
+    """For loop."""
+    init: Statement | None
+    condition: Expression | None
+    update: Expression | None
     body: Statement
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
@@ -195,7 +195,7 @@ class ForStatement(Statement):
 
 @dataclass
 class FunctionDeclaration(Statement):
-    """Объявление функции."""
+    """Function declaration."""
     name: str
     parameters: List[str]
     body: Block
@@ -206,8 +206,8 @@ class FunctionDeclaration(Statement):
 
 @dataclass
 class ReturnStatement(Statement):
-    """Оператор возврата."""
-    value: Optional[Expression] = None
+    """Return statement."""
+    value: Expression | None = None
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
         return visitor.visit_return_statement(self)
@@ -215,7 +215,7 @@ class ReturnStatement(Statement):
 
 @dataclass
 class Program(ASTNode):
-    """Корневой узел программы."""
+    """Program root node."""
     statements: List[Statement]
     
     def accept(self, visitor: 'ASTVisitor') -> Any:
@@ -224,7 +224,7 @@ class Program(ASTNode):
 
 # Абстрактный класс посетителя
 class ASTVisitor(ABC):
-    """Интерфейс посетителя для обхода AST."""
+    """Visitor interface to traverse AST."""
     
     @abstractmethod
     def visit_number_literal(self, node: NumberLiteral) -> Any:
@@ -304,4 +304,4 @@ class ASTVisitor(ABC):
     
     @abstractmethod
     def visit_program(self, node: Program) -> Any:
-        pass 
+        pass

@@ -1,9 +1,32 @@
 """Синтаксический анализатор для алголичного языка."""
 
-from typing import List, Optional, Union
+from typing import List
 
 from .tokens import Token, TokenType
-from .ast_nodes import *
+from .ast_nodes import (
+    Program,
+    Statement,
+    FunctionDeclaration,
+    VarDeclaration,
+    IfStatement,
+    WhileStatement,
+    ForStatement,
+    ReturnStatement,
+    Block,
+    Identifier,
+    Assignment,
+    ExpressionStatement,
+    Expression,
+    BinaryOperation,
+    UnaryOperation,
+    ArrayAccess,
+    FunctionCall,
+    BooleanLiteral,
+    NullLiteral,
+    NumberLiteral,
+    StringLiteral,
+    VectorLiteral,
+)
 
 
 class ParseError(Exception):
@@ -66,7 +89,7 @@ class Parser:
         
         return Program(statements)
     
-    def declaration(self) -> Optional[Statement]:
+    def declaration(self) -> Statement | None:
         """Объявление (функция или переменная)."""
         try:
             if self.match(TokenType.FUNCTION):
@@ -75,10 +98,10 @@ class Parser:
                 return self.var_declaration()
             
             return self.statement()
-        except ParseError as e:
+        except ParseError:
             # Синхронизация при ошибке
             self.synchronize()
-            raise e
+            raise
     
     def function_declaration(self) -> FunctionDeclaration:
         """Объявление функции."""
@@ -217,7 +240,7 @@ class Parser:
     def expression_statement(self) -> Statement:
         """Выражение как оператор."""
         # Проверяем на присваивание
-        if (self.match(TokenType.IDENTIFIER) and 
+        if (self.match(TokenType.IDENTIFIER) and
             self.peek_token().type in (TokenType.ASSIGN, TokenType.PLUS_ASSIGN, TokenType.MINUS_ASSIGN)):
             
             target = Identifier(self.advance().value)
@@ -273,7 +296,7 @@ class Parser:
         """Сравнение."""
         expr = self.term()
         
-        while self.match(TokenType.GREATER, TokenType.GREATER_EQUAL, 
+        while self.match(TokenType.GREATER, TokenType.GREATER_EQUAL,
                           TokenType.LESS, TokenType.LESS_EQUAL):
             operator = self.advance().value
             right = self.term()
@@ -427,4 +450,4 @@ class Parser:
 def parse(tokens: List[Token]) -> Program:
     """Удобная функция для парсинга."""
     parser = Parser(tokens)
-    return parser.parse() 
+    return parser.parse()

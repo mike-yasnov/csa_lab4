@@ -1,40 +1,36 @@
 #!/usr/bin/env python3
-"""Golden тесты для проверки корректности работы транслятора и машины."""
+"""Golden tests for translator and machine correctness."""
 
 import os
+import re
 import sys
 import subprocess
 import tempfile
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 
 class GoldenTest:
-    """Класс для управления golden тестами."""
-    
-    def __init__(self, root_dir: Path):
+    """Golden test runner and manager."""
+
+    def __init__(self, root_dir: Path) -> None:
         self.root_dir = root_dir
         self.examples_dir = root_dir / "examples"
         self.golden_dir = root_dir / "golden"
         self.golden_dir.mkdir(exist_ok=True)
     
-    def normalize_output(self, output: str) -> str:
-        """Нормализовать вывод, убрав изменяющиеся части."""
-        import re
-        
-        # Убираем пути к временным файлам
-        output = re.sub(r'/var/folders/[^/]+/[^/]+/[^/]+/[^/]+', '/tmp/tempfile', output)
-        output = re.sub(r'/tmp/tmp[a-zA-Z0-9_]+', '/tmp/tempfile', output)
-        
-        # Убираем другие временные пути
-        output = re.sub(r'tmp[a-zA-Z0-9_]+/', 'tempfile/', output)
-        
-        return output
+    def normalize_output(self, text: str) -> str:
+        """Normalize output by removing ephemeral paths."""
+        # Strip random macOS temp sandbox path
+        text = re.sub(r"/var/folders/[^/]+/[^/]+/[^/]+/[^/]+", "<tempfile>", text)
+        # Strip Python tempfile prefixes
+        text = re.sub(r"/tmp/tmp[a-zA-Z0-9_]+", "<tempfile>", text)
+        # Normalize generic tmp prefixes in logs
+        return re.sub(r"tmp[a-zA-Z0-9_]+/", "tempfile/", text)
     
-    def run_test(self, test_name: str, source_file: str, input_data: str = "", schedule_data: Optional[Dict] = None) -> Tuple[int, str, str, str, str]:
-        """Запустить один тест и вернуть код возврата, stdout, stderr, exec_log, debug_listing."""
-        
+    def run_test(self, _test_name: str, source_file: str, input_data: str = "", schedule_data: Dict[str, Any] | None = None) -> Tuple[int, str, str, str, str]:
+        """Run one test and return: code, stdout, stderr, exec_log, debug_listing."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
@@ -43,10 +39,10 @@ class GoldenTest:
                 sys.executable, "translator.py",
                 str(self.examples_dir / source_file),
                 "-o", str(temp_path / "program"),
-                "--debug"
+                "--debug",
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir)
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir, check=False, shell=False)
             if result.returncode != 0:
                 return result.returncode, "", f"Translation error: {result.stderr}", "", ""
             # Читаем отладочный листинг транслятора
@@ -60,7 +56,7 @@ class GoldenTest:
                 sys.executable, "machine.py",
                 str(temp_path / "program.bin"),
                 "-d", str(temp_path / "program_data.bin"),
-                "--log-exec", str(temp_path / "exec.log")
+                "--log-exec", str(temp_path / "exec.log"),
             ]
             # Если задано расписание, сохраняем его во временный файл и передаем
             if schedule_data is not None:
@@ -70,9 +66,9 @@ class GoldenTest:
             
             if input_data:
                 # Если есть входные данные
-                result = subprocess.run(cmd, input=input_data, capture_output=True, text=True, cwd=self.root_dir)
+                result = subprocess.run(cmd, input=input_data, capture_output=True, text=True, cwd=self.root_dir, check=False, shell=False)
             else:
-                result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir)
+                result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir, check=False, shell=False)
             
             # Нормализуем вывод
             normalized_stdout = self.normalize_output(result.stdout)
@@ -85,38 +81,37 @@ class GoldenTest:
             
             return result.returncode, normalized_stdout, normalized_stderr, exec_log, debug_listing
     
-    def save_golden(self, test_name: str, return_code: int, stdout: str, stderr: str, exec_log: str, debug_listing: str) -> None:
-        """Сохранить эталонный результат (включая журнал тактов и отладочный листинг транслятора)."""
+    def save_golden(self, test_name: str, result: Tuple[int, str, str, str, str]) -> None:
+        """Save golden result (including exec log and translator debug listing)."""
         golden_file = self.golden_dir / f"{test_name}.json"
+        return_code, stdout, stderr, exec_log, debug_listing = result
         
         data = {
             "return_code": return_code,
             "stdout": stdout,
             "stderr": stderr,
             "exec_log": exec_log,
-            "debug_listing": debug_listing
+            "debug_listing": debug_listing,
         }
         
-        with open(golden_file, 'w', encoding='utf-8') as f:
+        with golden_file.open('w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        
-        print(f"Эталон сохранен: {golden_file}")
+        sys.stdout.write(f"Golden saved: {golden_file}\n")
     
-    def load_golden(self, test_name: str) -> Optional[Dict]:
-        """Загрузить эталонный результат."""
+    def load_golden(self, test_name: str) -> Dict[str, Any] | None:
+        """Load golden result."""
         golden_file = self.golden_dir / f"{test_name}.json"
         
         if not golden_file.exists():
             return None
-        
-        with open(golden_file, 'r', encoding='utf-8') as f:
+        with golden_file.open('r', encoding='utf-8') as f:
             return json.load(f)
     
     def compare_results(self, test_name: str, actual: Tuple[int, str, str, str, str]) -> bool:
-        """Сравнить результат с эталоном."""
+        """Compare actual result with golden one."""
         golden = self.load_golden(test_name)
         if golden is None:
-            print(f"❌ {test_name}: Эталон не найден")
+            sys.stdout.write(f"❌ {test_name}: Golden not found\n")
             return False
         
         actual_code, actual_stdout, actual_stderr, actual_exec_log, actual_debug_listing = actual
@@ -126,28 +121,28 @@ class GoldenTest:
             golden["stderr"] == actual_stderr and
             golden.get("exec_log", "") == actual_exec_log and
             golden.get("debug_listing", "") == actual_debug_listing):
-            print(f"✅ {test_name}: PASSED")
+            sys.stdout.write(f"✅ {test_name}: PASSED\n")
             return True
         else:
-            print(f"❌ {test_name}: FAILED")
-            print(f"   Ожидалось: код={golden['return_code']}")
-            print(f"   Получено:  код={actual_code}")
+            sys.stdout.write(f"❌ {test_name}: FAILED\n")
+            sys.stdout.write(f"   Expected: code={golden['return_code']}\n")
+            sys.stdout.write(f"   Got:      code={actual_code}\n")
             if golden["stdout"] != actual_stdout:
-                print(f"   Stdout различается:")
-                print(f"     Ожидалось: {repr(golden['stdout'])}")
-                print(f"     Получено:  {repr(actual_stdout)}")
+                sys.stdout.write("   Stdout differs:\n")
+                sys.stdout.write(f"     Expected: {golden['stdout']!r}\n")
+                sys.stdout.write(f"     Got:      {actual_stdout!r}\n")
             if golden["stderr"] != actual_stderr:
-                print(f"   Stderr различается:")
-                print(f"     Ожидалось: {repr(golden['stderr'])}")
-                print(f"     Получено:  {repr(actual_stderr)}")
+                sys.stdout.write("   Stderr differs:\n")
+                sys.stdout.write(f"     Expected: {golden['stderr']!r}\n")
+                sys.stdout.write(f"     Got:      {actual_stderr!r}\n")
             if golden.get("exec_log", "") != actual_exec_log:
-                print(f"   Exec log различается (первые 200 симв.):")
-                print(f"     Ожидалось: {repr(golden.get('exec_log', '')[:200])}...")
-                print(f"     Получено:  {repr(actual_exec_log[:200])}...")
+                sys.stdout.write("   Exec log differs (first 200 chars):\n")
+                sys.stdout.write(f"     Expected: {golden.get('exec_log', '')[:200]!r}...\n")
+                sys.stdout.write(f"     Got:      {actual_exec_log[:200]!r}...\n")
             if golden.get("debug_listing", "") != actual_debug_listing:
-                print(f"   Debug listing различается (первые 200 симв.):")
-                print(f"     Ожидалось: {repr(golden.get('debug_listing', '')[:200])}...")
-                print(f"     Получено:  {repr(actual_debug_listing[:200])}...")
+                sys.stdout.write("   Debug listing differs (first 200 chars):\n")
+                sys.stdout.write(f"     Expected: {golden.get('debug_listing', '')[:200]!r}...\n")
+                sys.stdout.write(f"     Got:      {actual_debug_listing[:200]!r}...\n")
             return False
     
     def generate_goldens(self) -> None:
@@ -164,19 +159,19 @@ class GoldenTest:
             ("interrupt_demo", "interrupt_demo.alg", "", {"input": [
                 {"cycle": 10, "data": "X"},
                 {"cycle": 20, "data": "Y"},
-                {"cycle": 30, "data": "Z"}
+                {"cycle": 30, "data": "Z"},
             ]}),
         ]
         
-        print("Генерация эталонных тестов...")
+        sys.stdout.write("Generating golden tests...\n")
         
         for test_name, source_file, input_data, schedule in tests:
-            print(f"\nГенерация {test_name}...")
+            sys.stdout.write(f"\nGenerating {test_name}...\n")
             result = self.run_test(test_name, source_file, input_data, schedule)
-            self.save_golden(test_name, *result)
+            self.save_golden(test_name, result)
     
     def run_all_tests(self) -> bool:
-        """Запустить все тесты."""
+        """Run all golden tests."""
         tests = [
             ("hello", "hello.alg", "", None),
             ("simple_vector", "simple_vector.alg", "", None),
@@ -188,11 +183,11 @@ class GoldenTest:
             ("interrupt_demo", "interrupt_demo.alg", "", {"input": [
                 {"cycle": 10, "data": "X"},
                 {"cycle": 20, "data": "Y"},
-                {"cycle": 30, "data": "Z"}
+                {"cycle": 30, "data": "Z"},
             ]}),
         ]
         
-        print("Запуск golden тестов...")
+        sys.stdout.write("Running golden tests...\n")
         all_passed = True
         
         for test_name, source_file, input_data, schedule in tests:
@@ -203,12 +198,12 @@ class GoldenTest:
         return all_passed
 
 
-def main():
-    """Главная функция."""
+def main() -> None:
+    """CLI entry point."""
     if len(sys.argv) < 2:
-        print("Использование:")
-        print("  python golden_test.py generate  - сгенерировать эталоны")
-        print("  python golden_test.py test      - запустить тесты")
+        sys.stdout.write("Usage:\n")
+        sys.stdout.write("  python golden_test.py generate  - generate goldens\n")
+        sys.stdout.write("  python golden_test.py test      - run tests\n")
         sys.exit(1)
     
     root_dir = Path(__file__).parent
@@ -218,21 +213,21 @@ def main():
     
     if command == "generate":
         tester.generate_goldens()
-        print("\n✅ Эталонные тесты сгенерированы!")
+        sys.stdout.write("\n✅ Golden tests generated!\n")
     
     elif command == "test":
         success = tester.run_all_tests()
         if success:
-            print("\n✅ Все тесты прошли успешно!")
+            sys.stdout.write("\n✅ All tests passed!\n")
             sys.exit(0)
         else:
-            print("\n❌ Некоторые тесты не прошли")
+            sys.stdout.write("\n❌ Some tests failed\n")
             sys.exit(1)
     
     else:
-        print(f"Неизвестная команда: {command}")
+        sys.stdout.write(f"Unknown command: {command}\n")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    main() 
+    main()

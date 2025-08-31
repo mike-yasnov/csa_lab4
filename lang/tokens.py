@@ -1,8 +1,8 @@
-"""Определение токенов для языка с алголичным синтаксисом."""
+"""Token definitions for the Alg-like language syntax."""
 
 from enum import Enum, auto
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 class TokenType(Enum):
@@ -158,4 +158,4 @@ SINGLE_CHAR_OPERATORS = {
     ';': TokenType.SEMICOLON,
     ',': TokenType.COMMA,
     '.': TokenType.DOT,
-} 
+}

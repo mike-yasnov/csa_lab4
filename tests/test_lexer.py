@@ -5,7 +5,7 @@ from lang.lexer import tokenize, LexerError
 from lang.tokens import TokenType
 
 
-def test_numbers():
+def test_numbers() -> None:
     """Тест разбора чисел."""
     tokens = tokenize("123 45.67 0")
     
@@ -19,7 +19,7 @@ def test_numbers():
     assert tokens[2].value == 0
 
 
-def test_strings():
+def test_strings() -> None:
     """Тест разбора строк."""
     tokens = tokenize('"hello" "world with spaces"')
     
@@ -30,7 +30,7 @@ def test_strings():
     assert tokens[1].value == "world with spaces"
 
 
-def test_identifiers():
+def test_identifiers() -> None:
     """Тест разбора идентификаторов."""
     tokens = tokenize("variable_name myVar test123")
     
@@ -44,7 +44,7 @@ def test_identifiers():
     assert tokens[2].value == "test123"
 
 
-def test_keywords():
+def test_keywords() -> None:
     """Тест разбора ключевых слов."""
     tokens = tokenize("if else while for function var const")
     
@@ -57,21 +57,21 @@ def test_keywords():
     assert tokens[6].type == TokenType.CONST
 
 
-def test_operators():
+def test_operators() -> None:
     """Тест разбора операторов."""
     tokens = tokenize("+ - * / % == != < <= > >=")
     
     expected_types = [
         TokenType.PLUS, TokenType.MINUS, TokenType.MULTIPLY, TokenType.DIVIDE,
         TokenType.MODULO, TokenType.EQUAL, TokenType.NOT_EQUAL, TokenType.LESS,
-        TokenType.LESS_EQUAL, TokenType.GREATER, TokenType.GREATER_EQUAL
+        TokenType.LESS_EQUAL, TokenType.GREATER, TokenType.GREATER_EQUAL,
     ]
     
     for i, expected_type in enumerate(expected_types):
         assert tokens[i].type == expected_type
 
 
-def test_vector_literals():
+def test_vector_literals() -> None:
     """Тест разбора векторных литералов."""
     tokens = tokenize("<| 1, 2, 3 |>")
     
@@ -84,7 +84,7 @@ def test_vector_literals():
     assert tokens[6].type == TokenType.VECTOR_CLOSE
 
 
-def test_comments():
+def test_comments() -> None:
     """Тест обработки комментариев."""
     tokens = tokenize("var x = 5; // это комментарий\nvar y = 10;")
     
@@ -94,10 +94,10 @@ def test_comments():
     assert tokens[5].type == TokenType.VAR
 
 
-def test_error_handling():
+def test_error_handling() -> None:
     """Тест обработки ошибок."""
     with pytest.raises(LexerError):
         tokenize('"незакрытая строка')
     
     with pytest.raises(LexerError):
-        tokenize("@#$%")  # Недопустимые символы 
+        tokenize("@#$%")  # invalid symbols

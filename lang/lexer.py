@@ -1,7 +1,6 @@
-"""Лексический анализатор для языка с алголичным синтаксисом."""
+"""Lexer for the Alg-like language syntax."""
 
-import re
-from typing import List, Iterator, Optional
+from typing import List, Optional
 
 from .tokens import Token, TokenType, KEYWORDS, TWO_CHAR_OPERATORS, SINGLE_CHAR_OPERATORS
 
@@ -26,13 +25,13 @@ class Lexer:
         self.column = 1
         self.tokens: List[Token] = []
     
-    def current_char(self) -> Optional[str]:
+    def current_char(self) -> str | None:
         """Получить текущий символ."""
         if self.pos >= len(self.text):
             return None
         return self.text[self.pos]
     
-    def peek_char(self, offset: int = 1) -> Optional[str]:
+    def peek_char(self, offset: int = 1) -> str | None:
         """Посмотреть на символ с заданным смещением."""
         peek_pos = self.pos + offset
         if peek_pos >= len(self.text):
@@ -122,7 +121,7 @@ class Lexer:
             current = self.current_char()
         
         if not current:
-            raise LexerError("Незакрытая строка", start_line, start_column)
+            raise LexerError("Unterminated string", start_line, start_column)
         
         self.advance()  # Пропускаем закрывающую кавычку
         return Token(TokenType.STRING, result, start_line, start_column)
@@ -175,7 +174,7 @@ class Lexer:
             self.advance()
             return Token(SINGLE_CHAR_OPERATORS[current], current, start_line, start_column)
         
-        raise LexerError(f"Неизвестный символ: {current!r}", start_line, start_column)
+        raise LexerError(f"Unknown symbol: {current!r}", start_line, start_column)
     
     def tokenize(self) -> List[Token]:
         """Выполнить лексический анализ и вернуть список токенов."""
@@ -219,6 +218,6 @@ class Lexer:
 
 
 def tokenize(text: str) -> List[Token]:
-    """Удобная функция для токенизации текста."""
+    """Helper function to tokenize text."""
     lexer = Lexer(text)
-    return lexer.tokenize() 
+    return lexer.tokenize()

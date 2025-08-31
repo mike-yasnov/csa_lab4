@@ -1,86 +1,86 @@
-"""Определение опкодов для стековой архитектуры."""
+"""Opcode definitions for the stack-based architecture."""
 
 from enum import IntEnum
 
 
 class Opcode(IntEnum):
-    """Опкоды инструкций для стековой архитектуры с векторными расширениями."""
+    """Instruction opcodes for stack-based architecture with vector extensions."""
     
-    # Основные стековые операции
-    PUSH = 0x00     # Положить значение на стек
-    POP = 0x01      # Снять значение со стека
-    DUP = 0x02      # Дублировать верхний элемент стека
-    SWAP = 0x03     # Поменять местами два верхних элемента
-    DROP = 0x04     # Удалить верхний элемент стека
+    # Core stack operations
+    PUSH = 0x00     # Push value to stack
+    POP = 0x01      # Pop value from stack
+    DUP = 0x02      # Duplicate top of stack
+    SWAP = 0x03     # Swap top two elements
+    DROP = 0x04     # Drop top element
     
-    # Арифметические операции
-    ADD = 0x10      # Сложение двух верхних элементов
-    SUB = 0x11      # Вычитание
-    MUL = 0x12      # Умножение
-    DIV = 0x13      # Деление
-    MOD = 0x14      # Остаток от деления
-    NEG = 0x15      # Отрицание
+    # Arithmetic
+    ADD = 0x10      # Add
+    SUB = 0x11      # Subtract
+    MUL = 0x12      # Multiply
+    DIV = 0x13      # Divide
+    MOD = 0x14      # Remainder
+    NEG = 0x15      # Negate
     
-    # Логические операции
-    AND = 0x20      # Логическое И
-    OR = 0x21       # Логическое ИЛИ
-    XOR = 0x22      # Исключающее ИЛИ
-    NOT = 0x23      # Логическое отрицание
+    # Logic
+    AND = 0x20      # Logical AND
+    OR = 0x21       # Logical OR
+    XOR = 0x22      # XOR
+    NOT = 0x23      # Logical NOT
     
-    # Операции сравнения
-    EQ = 0x30       # Равенство
-    NE = 0x31       # Неравенство
-    LT = 0x32       # Меньше
-    LE = 0x33       # Меньше или равно
-    GT = 0x34       # Больше
-    GE = 0x35       # Больше или равно
+    # Comparisons
+    EQ = 0x30       # Equal
+    NE = 0x31       # Not equal
+    LT = 0x32       # Less than
+    LE = 0x33       # Less or equal
+    GT = 0x34       # Greater than
+    GE = 0x35       # Greater or equal
     
-    # Операции перехода
-    JMP = 0x40      # Безусловный переход
-    JZ = 0x41       # Переход если ноль
-    JNZ = 0x42      # Переход если не ноль
-    CALL = 0x43     # Вызов функции
-    RET = 0x44      # Возврат из функции
+    # Control flow
+    JMP = 0x40      # Unconditional jump
+    JZ = 0x41       # Jump if zero
+    JNZ = 0x42      # Jump if not zero
+    CALL = 0x43     # Call
+    RET = 0x44      # Return
     
-    # Операции с памятью
-    LOAD = 0x50     # Загрузить из памяти данных по адресу TOS
-    STORE = 0x51    # Сохранить в память данных
-    LOAD_I = 0x52   # Загрузить из памяти команд
-    LOADB = 0x53    # Загрузить байт из памяти данных
-    STOREB = 0x54   # Сохранить байт в память данных
+    # Memory
+    LOAD = 0x50     # Load from data memory at TOS
+    STORE = 0x51    # Store to data memory
+    LOAD_I = 0x52   # Load from instruction memory
+    LOADB = 0x53    # Load byte from data memory
+    STOREB = 0x54   # Store byte to data memory
     
-    # Портовый ввод-вывод
-    IN = 0x60       # Ввод из порта
-    OUT = 0x61      # Вывод в порт
+    # I/O
+    IN = 0x60       # Input from port
+    OUT = 0x61      # Output to port
     
-    # Системные операции
-    HALT = 0x70     # Остановка процессора
-    NOP = 0x71      # Нет операции
-    INT = 0x72      # Программное прерывание
-    IRET = 0x73     # Возврат из прерывания
+    # System
+    HALT = 0x70     # Halt
+    NOP = 0x71      # No operation
+    INT = 0x72      # Software interrupt
+    IRET = 0x73     # Interrupt return
     
-    # Векторные операции (vector extension)
-    V_LOAD = 0x80   # Загрузить вектор
-    V_STORE = 0x81  # Сохранить вектор
-    V_ADD = 0x82    # Векторное сложение
-    V_SUB = 0x83    # Векторное вычитание
-    V_MUL = 0x84    # Векторное умножение
-    V_DIV = 0x85    # Векторное деление
-    V_CMP = 0x86    # Векторное сравнение
-    V_DOT = 0x87    # Скалярное произведение векторов
-    V_NORM = 0x88   # Норма вектора (длина)
-    V_MAX = 0x89    # Максимальный элемент вектора
-    V_MIN = 0x8A    # Минимальный элемент вектора
-    V_SUM = 0x8B    # Сумма элементов вектора
-    V_AVG = 0x8C    # Среднее арифметическое элементов
-    V_SCALE = 0x8D  # Умножение вектора на скаляр
-    V_COPY = 0x8E   # Копирование вектора
-    V_SET = 0x8F    # Установка элемента вектора
+    # Vector extension
+    V_LOAD = 0x80   # Load vector
+    V_STORE = 0x81  # Store vector
+    V_ADD = 0x82    # Vector add
+    V_SUB = 0x83    # Vector sub
+    V_MUL = 0x84    # Vector mul
+    V_DIV = 0x85    # Vector div
+    V_CMP = 0x86    # Vector compare
+    V_DOT = 0x87    # Dot product
+    V_NORM = 0x88   # Vector norm
+    V_MAX = 0x89    # Max element
+    V_MIN = 0x8A    # Min element
+    V_SUM = 0x8B    # Sum elements
+    V_AVG = 0x8C    # Average
+    V_SCALE = 0x8D  # Scale vector
+    V_COPY = 0x8E   # Copy vector
+    V_SET = 0x8F    # Set element
 
 
-# Размеры инструкций в словах
+# Instruction sizes (in words)
 INSTRUCTION_SIZES = {
-    # Инструкции без операндов
+    # No-operand instructions
     Opcode.POP: 1,
     Opcode.DUP: 1,
     Opcode.SWAP: 1,
@@ -111,7 +111,7 @@ INSTRUCTION_SIZES = {
     Opcode.NOP: 1,
     Opcode.IRET: 1,
     
-    # Инструкции с одним операндом
+    # Single-operand instructions
     Opcode.PUSH: 2,
     Opcode.JMP: 2,
     Opcode.JZ: 2,
@@ -121,7 +121,7 @@ INSTRUCTION_SIZES = {
     Opcode.OUT: 2,
     Opcode.INT: 2,
     
-    # Векторные инструкции с операндами
+    # Vector instructions (with operands where applicable)
     Opcode.V_LOAD: 2,
     Opcode.V_STORE: 2,
     Opcode.V_ADD: 1,
@@ -141,7 +141,7 @@ INSTRUCTION_SIZES = {
 }
 
 
-# Количество тактов для выполнения инструкций
+# Instruction cycle counts
 INSTRUCTION_CYCLES = {
     Opcode.NOP: 1,
     Opcode.PUSH: 2,
@@ -180,7 +180,7 @@ INSTRUCTION_CYCLES = {
     Opcode.HALT: 1,
     Opcode.INT: 8,
     Opcode.IRET: 6,
-    # Векторные операции (более медленные)
+    # Vector operations (slower)
     Opcode.V_LOAD: 8,
     Opcode.V_STORE: 8,
     Opcode.V_ADD: 4,
@@ -201,13 +201,16 @@ INSTRUCTION_CYCLES = {
 
 
 def get_opcode_name(opcode: int) -> str:
-    """Получить имя опкода по его значению."""
+    """Get opcode name by numeric value."""
     try:
         return Opcode(opcode).name
     except ValueError:
         return f"UNKNOWN_{opcode:02X}"
 
 
+VECTOR_BASE = 0x80
+
+
 def is_vector_operation(opcode: int) -> bool:
-    """Проверить, является ли операция векторной."""
-    return opcode >= 0x80 
+    """Check if opcode is a vector operation."""
+    return opcode >= VECTOR_BASE
