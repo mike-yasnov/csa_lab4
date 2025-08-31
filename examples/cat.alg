@@ -5,7 +5,7 @@ function main() {
     while (ch != 0) {
         ch = read();
         if (ch != 0) {
-            print(ch);
+            print(chr(ch));
         }
     }
 }

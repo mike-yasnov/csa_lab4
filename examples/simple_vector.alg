@@ -8,7 +8,8 @@ function main() {
     var b = 20;
     var sum = a + b;
     
-    print("Результат: 30");
+    print("Результат: ");
+    print_number(sum);
     
     print("Векторы будут добавлены позже");
 }

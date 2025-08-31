@@ -77,9 +77,9 @@ def main() -> None:
                 print(f"Ошибка: файл входных данных '{args.input}' не найден", file=sys.stderr)
                 sys.exit(1)
             content = input_path.read_text(encoding='utf-8')
-            # Планируем побайтно начиная с такта 0
-            for idx, ch in enumerate(content):
-                processor.schedule_input_event(idx, ord(ch))
+            # Немедленно наполняем буфер ввода для синхронного IN
+            for ch in content:
+                processor.input_buffer.append(ord(ch))
 
         # Запускаем выполнение
         print(f"Запуск выполнения (максимум {args.max_cycles} тактов)...")

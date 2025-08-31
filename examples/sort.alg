@@ -9,9 +9,9 @@ function main() {
     var c = 20;
     
     print("До сортировки:");
-    print(a);
-    print(b);
-    print(c);
+    print_number(a);
+    print_number(b);
+    print_number(c);
     
     // Простая сортировка тремя сравнениями
     if (a > b) {
@@ -33,9 +33,9 @@ function main() {
     }
     
     print("После сортировки:");
-    print(a);
-    print(b);
-    print(c);
+    print_number(a);
+    print_number(b);
+    print_number(c);
 }
 
 main(); 

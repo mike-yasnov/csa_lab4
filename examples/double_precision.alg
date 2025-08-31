@@ -13,14 +13,14 @@ function main() {
     var b_low = 1;
     
     print("Число A: high=");
-    print(a_high);
+    print_number(a_high);
     print(" low=");
-    print(a_low);
+    print_number(a_low);
     
     print("Число B: high=");
-    print(b_high);
+    print_number(b_high);
     print(" low=");
-    print(b_low);
+    print_number(b_low);
     
     // Сложение 64-битных чисел
     var result_low = a_low + b_low;
@@ -34,18 +34,18 @@ function main() {
     var result_high = a_high + b_high + carry;
     
     print("A + B: high=");
-    print(result_high);
+    print_number(result_high);
     print(" low=");
-    print(result_low);
+    print_number(result_low);
     
     // Умножение на константу
     var mult_low = a_low * 3;
     var mult_high = a_high * 3;
     
     print("A * 3: high=");
-    print(mult_high);
+    print_number(mult_high);
     print(" low=");
-    print(mult_low);
+    print_number(mult_low);
     
     print("64-битная арифметика завершена!");
 }

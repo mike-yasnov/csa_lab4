@@ -46,6 +46,8 @@ class Opcode(IntEnum):
     LOAD = 0x50     # Загрузить из памяти данных по адресу TOS
     STORE = 0x51    # Сохранить в память данных
     LOAD_I = 0x52   # Загрузить из памяти команд
+    LOADB = 0x53    # Загрузить байт из памяти данных
+    STOREB = 0x54   # Сохранить байт в память данных
     
     # Портовый ввод-вывод
     IN = 0x60       # Ввод из порта
@@ -102,6 +104,8 @@ INSTRUCTION_SIZES = {
     Opcode.LOAD: 1,
     Opcode.STORE: 1,
     Opcode.LOAD_I: 1,
+    Opcode.LOADB: 1,
+    Opcode.STOREB: 1,
     Opcode.RET: 1,
     Opcode.HALT: 1,
     Opcode.NOP: 1,
@@ -169,6 +173,8 @@ INSTRUCTION_CYCLES = {
     Opcode.LOAD: 4,
     Opcode.STORE: 4,
     Opcode.LOAD_I: 4,
+    Opcode.LOADB: 4,
+    Opcode.STOREB: 4,
     Opcode.IN: 5,
     Opcode.OUT: 5,
     Opcode.HALT: 1,

@@ -10,19 +10,23 @@ function main() {
     
     // Вычисляем сумму первых n натуральных чисел: sum = n*(n+1)/2
     var sum = n * (n + 1) / 2;
-    print("Сумма первых 100 чисел: 5050");
+    print("Сумма первых 100 чисел: ");
+    print_number(sum);
     
     // Квадрат суммы
     var sum_squared = sum * sum;
-    print("Квадрат суммы: 25502500");
+    print("Квадрат суммы: ");
+    print_number(sum_squared);
     
     // Сумма квадратов первых n чисел: sum_of_squares = n*(n+1)*(2*n+1)/6
     var sum_of_squares = n * (n + 1) * (2 * n + 1) / 6;
-    print("Сумма квадратов: 338350");
+    print("Сумма квадратов: ");
+    print_number(sum_of_squares);
     
     // Разность
     var difference = sum_squared - sum_of_squares;
-    print("Разность: 25164150");
+    print("Разность: ");
+    print_number(difference);
     
     print("Решение найдено!");
 }

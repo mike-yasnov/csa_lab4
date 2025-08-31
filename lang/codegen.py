@@ -74,10 +74,18 @@ class CodeGenerator(ASTVisitor):
         self.builtin_functions = {
             'print': self._generate_print,
             'print_number': self._generate_print_number,
+            'readLine': self._generate_read_line,
+            'alloc': self._generate_alloc,
+            'readLineBuf': self._generate_read_line_buf,
             'read': self._generate_read,
             'readInt': self._generate_read_int,
             'len': self._generate_len,
             'chr': self._generate_chr,
+            'v_load': self._generate_v_load,
+            'v_add': self._generate_v_add,
+            'v_dot': self._generate_v_dot,
+            'v_store': self._generate_v_store,
+            'v_sum': self._generate_v_sum,
             'set_interrupt_handler': self._generate_set_interrupt_handler,
             'enable_interrupts': self._generate_enable_interrupts,
             'disable_interrupts': self._generate_disable_interrupts,
@@ -240,10 +248,13 @@ class CodeGenerator(ASTVisitor):
         # Загружаем индекс
         node.index.accept(self)
         
-        # Вычисляем адрес элемента (addr + index * 4)
-        self._emit(Opcode.PUSH, 4)  # Размер элемента
-        self._emit(Opcode.MUL)      # index * 4
-        self._emit(Opcode.ADD)      # addr + offset
+        # Вычисляем адрес элемента для вектора в формате [size][elem0][elem1]...
+        # addr + 4 (пропустить size) + index * 4
+        self._emit(Opcode.PUSH, 4)   # ... * 4
+        self._emit(Opcode.MUL)       # index * 4
+        self._emit(Opcode.PUSH, 4)   # + 4 (смещение после size)
+        self._emit(Opcode.ADD)       # offset + 4
+        self._emit(Opcode.ADD)       # addr + (offset+4)
         self._emit(Opcode.LOAD)     # Загрузить значение
     
     def visit_expression_statement(self, node: ExpressionStatement) -> Any:
@@ -401,10 +412,13 @@ class CodeGenerator(ASTVisitor):
     
     def visit_function_declaration(self, node: FunctionDeclaration) -> Any:
         """Посетить объявление функции."""
-        # Запоминаем адрес функции
+        # Вставляем прыжок, чтобы на верхнем уровне пропустить тело функции
+        skip_jmp_addr = self._emit(Opcode.JMP, 0)
+
+        # Адрес функции начинается здесь
         func_addr = len(self.machine_code.instructions)
         self.symbols.functions[node.name] = func_addr
-        
+
         # Входим в область видимости функции
         self.symbols.enter_scope()
         
@@ -424,6 +438,10 @@ class CodeGenerator(ASTVisitor):
         self._emit(Opcode.RET)
         
         self.symbols.exit_scope()
+        
+        # Пропатчить прыжок через тело функции
+        end_addr = len(self.machine_code.instructions)
+        self._patch_address(skip_jmp_addr, end_addr)
     
     def visit_return_statement(self, node: ReturnStatement) -> Any:
         """Посетить оператор возврата."""
@@ -469,6 +487,86 @@ class CodeGenerator(ASTVisitor):
         self._emit(Opcode.IN, self.INPUT_PORT)
         # Предполагаем, что ввод уже в числовом формате
     
+    def _generate_alloc(self, arguments: List[Expression]) -> None:
+        """Выделить блок size байт в памяти данных и вернуть адрес."""
+        if len(arguments) != 1:
+            raise CodeGenError("alloc(size)")
+        # Получаем size как константу на этапе генерации
+        arg = arguments[0]
+        if not isinstance(arg, NumberLiteral) or isinstance(arg.value, float):
+            raise CodeGenError("alloc требует целочисленный литерал размера")
+        size = int(arg.value)
+        addr = self.machine_code.add_data(b"_" * size)
+        self._emit(Opcode.PUSH, addr)
+
+    def _generate_read_line(self, arguments: List[Expression]) -> None:
+        """Читать до \n/0 и выводить посимвольно (прежняя простая версия)."""
+        if len(arguments) != 0:
+            raise CodeGenError("readLine не принимает аргументов")
+        loop_start = len(self.machine_code.instructions)
+        self._emit(Opcode.IN, self.INPUT_PORT)
+        self._emit(Opcode.DUP); self._emit(Opcode.PUSH, 0); self._emit(Opcode.EQ); j0 = self._emit(Opcode.JNZ, 0)
+        self._emit(Opcode.DUP); self._emit(Opcode.PUSH, 10); self._emit(Opcode.EQ); j1 = self._emit(Opcode.JNZ, 0)
+        self._emit(Opcode.OUT, self.OUTPUT_PORT)
+        self._emit(Opcode.JMP, loop_start)
+        end = len(self.machine_code.instructions)
+        self._patch_address(j0, end); self._patch_address(j1, end)
+        self._emit(Opcode.POP)
+        self._emit(Opcode.PUSH, 0)
+
+    def _generate_read_line_buf(self, arguments: List[Expression]) -> None:
+        """readLineBuf(bufAddr, maxLen): читать в буфер C-строку, завершить 0, не переполняя."""
+        if len(arguments) != 2:
+            raise CodeGenError("readLineBuf(bufAddr, maxLen)")
+        # Выделяем скрытую переменную p (указатель на текущую позицию)
+        p_addr = self.machine_code.add_word(0)
+        # Инициализация p = bufAddr
+        arguments[0].accept(self)             # buf
+        self._emit(Opcode.PUSH, p_addr)       # buf, p_addr
+        self._emit(Opcode.STORE)              # MEM[p_addr] = buf
+        # loop:
+        loop_start = len(self.machine_code.instructions)
+        # if (p - buf) >= maxLen-1 -> end
+        self._emit(Opcode.PUSH, p_addr)
+        self._emit(Opcode.LOAD)               # p
+        arguments[0].accept(self)             # p, buf
+        self._emit(Opcode.SUB)                # p - buf
+        arguments[1].accept(self)             # (p-buf), maxLen
+        self._emit(Opcode.PUSH, 1)
+        self._emit(Opcode.SUB)                # maxLen-1
+        self._emit(Opcode.GE)
+        j_end_full = self._emit(Opcode.JNZ, 0)
+        # ch = IN(0)
+        self._emit(Opcode.IN, self.INPUT_PORT)
+        # if ch == 0 -> end
+        self._emit(Opcode.DUP); self._emit(Opcode.PUSH, 0); self._emit(Opcode.EQ); j_end_zero = self._emit(Opcode.JNZ, 0)
+        # if ch == 10 -> end
+        self._emit(Opcode.DUP); self._emit(Opcode.PUSH, 10); self._emit(Opcode.EQ); j_end_nl = self._emit(Opcode.JNZ, 0)
+        # addr = p; STOREB(addr, ch)
+        self._emit(Opcode.PUSH, p_addr)
+        self._emit(Opcode.LOAD)               # ch, p
+        self._emit(Opcode.STOREB)
+        # p = p + 1
+        self._emit(Opcode.PUSH, p_addr)
+        self._emit(Opcode.LOAD)               # p
+        self._emit(Opcode.PUSH, 1)
+        self._emit(Opcode.ADD)                # p+1
+        self._emit(Opcode.PUSH, p_addr)       # p+1, p_addr
+        self._emit(Opcode.STORE)
+        # loop
+        self._emit(Opcode.JMP, loop_start)
+        # end:
+        end_addr = len(self.machine_code.instructions)
+        self._patch_address(j_end_full, end_addr)
+        self._patch_address(j_end_zero, end_addr)
+        self._patch_address(j_end_nl, end_addr)
+        # *p = 0 (терминатор)
+        self._emit(Opcode.PUSH, p_addr)
+        self._emit(Opcode.LOAD)               # p
+        self._emit(Opcode.PUSH, 0)
+        self._emit(Opcode.SWAP)               # 0, p
+        self._emit(Opcode.STOREB)
+    
     def _generate_len(self, arguments: List[Expression]) -> None:
         """Генерировать код для len."""
         if len(arguments) != 1:
@@ -486,6 +584,46 @@ class CodeGenerator(ASTVisitor):
         arguments[0].accept(self)
         # Для простоты возвращаем число как есть (код символа)
         # В реальной реализации могли бы преобразовывать в строку
+
+    # Векторные builtin'ы (тонкая обёртка над V_* инструкциями CPU)
+    def _generate_v_load(self, arguments: List[Expression]) -> None:
+        if len(arguments) != 3:
+            raise CodeGenError("v_load(addr, length, reg)")
+        # Порядок для стека: addr, length, reg
+        arguments[0].accept(self)
+        arguments[1].accept(self)
+        arguments[2].accept(self)
+        self._emit(Opcode.V_LOAD)
+
+    def _generate_v_add(self, arguments: List[Expression]) -> None:
+        if len(arguments) != 3:
+            raise CodeGenError("v_add(reg1, reg2, result_reg)")
+        # Порядок на стеке: reg1, reg2, result
+        arguments[0].accept(self)
+        arguments[1].accept(self)
+        arguments[2].accept(self)
+        self._emit(Opcode.V_ADD)
+
+    def _generate_v_dot(self, arguments: List[Expression]) -> None:
+        if len(arguments) != 2:
+            raise CodeGenError("v_dot(reg1, reg2)")
+        arguments[0].accept(self)
+        arguments[1].accept(self)
+        self._emit(Opcode.V_DOT)
+
+    def _generate_v_store(self, arguments: List[Expression]) -> None:
+        if len(arguments) != 2:
+            raise CodeGenError("v_store(reg, addr)")
+        # порядок на стеке: addr, reg
+        arguments[1].accept(self)
+        arguments[0].accept(self)
+        self._emit(Opcode.V_STORE)
+
+    def _generate_v_sum(self, arguments: List[Expression]) -> None:
+        if len(arguments) != 1:
+            raise CodeGenError("v_sum(reg)")
+        arguments[0].accept(self)
+        self._emit(Opcode.V_SUM)
 
     def _generate_set_interrupt_handler(self, arguments: List[Expression]) -> None:
         """Генерировать код для set_interrupt_handler."""

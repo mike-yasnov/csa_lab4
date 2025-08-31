@@ -542,11 +542,22 @@ class StackProcessor:
                 address = self.pop()
                 value = self.read_memory_word(address)
                 self.push(value)
+            elif opcode == Opcode.LOADB:
+                address = self.pop()
+                if address < 0 or address >= len(self.data_memory):
+                    raise ProcessorError(f"Неверный адрес памяти: {address}")
+                self.push(self.data_memory[address])
             
             elif opcode == Opcode.STORE:
                 address = self.pop()
                 value = self.pop()
                 self.write_memory_word(address, value)
+            elif opcode == Opcode.STOREB:
+                address = self.pop()
+                value = self.pop() & 0xFF
+                if address < 0 or address >= len(self.data_memory):
+                    raise ProcessorError(f"Неверный адрес памяти: {address}")
+                self.data_memory[address] = value
             
             # Портовый I/O с прерываниями
             elif opcode == Opcode.IN:
@@ -569,6 +580,9 @@ class StackProcessor:
                             string_bytes.append(self.data_memory[addr])
                             addr += 1
                         self.output_buffer.extend(string_bytes)
+                    elif 0 <= value <= 255:
+                        # Вывод одного символа по его коду
+                        self.output_buffer.append(value)
                     else:
                         # Если адрес вне памяти, выводим само значение как число
                         for ch in str(value):
