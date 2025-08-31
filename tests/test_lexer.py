@@ -4,16 +4,21 @@ import pytest
 from lang.lexer import tokenize, LexerError
 from lang.tokens import TokenType
 
+# Constants to avoid magic numbers in assertions
+EXPECTED_INT = 123
+EXPECTED_FLOAT = 45.67
+EXPECTED_TOKENS_AFTER_COMMENTS = 11
+
 
 def test_numbers() -> None:
     """Тест разбора чисел."""
     tokens = tokenize("123 45.67 0")
     
     assert tokens[0].type == TokenType.NUMBER
-    assert tokens[0].value == 123
+    assert tokens[0].value == EXPECTED_INT
     
     assert tokens[1].type == TokenType.NUMBER
-    assert tokens[1].value == 45.67
+    assert tokens[1].value == EXPECTED_FLOAT
     
     assert tokens[2].type == TokenType.NUMBER
     assert tokens[2].value == 0
@@ -89,7 +94,7 @@ def test_comments() -> None:
     tokens = tokenize("var x = 5; // это комментарий\nvar y = 10;")
     
     # Комментарии должны игнорироваться
-    assert len(tokens) == 11  # var x = 5 ; var y = 10 ;  EOF
+    assert len(tokens) == EXPECTED_TOKENS_AFTER_COMMENTS  # var x = 5 ; var y = 10 ;  EOF
     assert tokens[0].type == TokenType.VAR
     assert tokens[5].type == TokenType.VAR
 

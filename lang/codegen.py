@@ -30,6 +30,10 @@ from .ast_nodes import (
 from isa.opcodes import Opcode
 from isa.machine_code import MachineCode
 
+# Argument count constants (to avoid magic numbers in checks)
+ARGS_2 = 2
+ARGS_3 = 3
+
 
 class CodeGenError(Exception):
     """Ошибка генерации кода."""
@@ -166,7 +170,7 @@ class CodeGenerator(ASTVisitor):
         """Посетить булев литерал."""
         self._emit(Opcode.PUSH, 1 if node.value else 0)
     
-    def visit_null_literal(self, node: NullLiteral) -> Any:
+    def visit_null_literal(self, _node: NullLiteral) -> Any:
         """Посетить null литерал."""
         self._emit(Opcode.PUSH, 0)
     
@@ -329,7 +333,7 @@ class CodeGenerator(ASTVisitor):
             node.target.accept(self)
             self._emit(Opcode.ADD)
         elif node.operator == '-=':
-            # Загружаем текущее значение  
+            # Загружаем текущее значение
             node.target.accept(self)
             self._emit(Opcode.SUB)
         else:
@@ -491,8 +495,7 @@ class CodeGenerator(ASTVisitor):
         
         arguments[0].accept(self)
         
-        # Определяем тип аргумента и выводим соответственно
-        # Для простоты считаем, что это строка (адрес C-string)
+        # Assume the argument is a C-string address and print via port
         self._emit(Opcode.OUT, self.OUTPUT_PORT)
     
     def _generate_read(self, arguments: List[Expression]) -> None:
@@ -507,7 +510,7 @@ class CodeGenerator(ASTVisitor):
         if len(arguments) != 1:
             raise CodeGenError("print_number принимает ровно один аргумент")
         arguments[0].accept(self)
-        # Вывод числа через порт 0 (Digit), по соглашению с example_harv
+        # Output number via port 0 (Digit), per example_harv convention
         self._emit(Opcode.OUT, 0)
     
     def _generate_read_int(self, arguments: List[Expression]) -> None:
@@ -516,7 +519,7 @@ class CodeGenerator(ASTVisitor):
             raise CodeGenError("readInt не принимает аргументов")
         
         self._emit(Opcode.IN, self.INPUT_PORT)
-        # Предполагаем, что ввод уже в числовом формате
+        # Assume input is already numeric
     
     def _generate_alloc(self, arguments: List[Expression]) -> None:
         """Выделить блок size байт в памяти данных и вернуть адрес."""
@@ -554,17 +557,17 @@ class CodeGenerator(ASTVisitor):
 
     def _generate_read_line_buf(self, arguments: List[Expression]) -> None:
         """readLineBuf(bufAddr, maxLen): читать в буфер C-строку, завершить 0, не переполняя."""
-        if len(arguments) != 2:
+        if len(arguments) != ARGS_2:
             raise CodeGenError("readLineBuf(bufAddr, maxLen)")
         # Выделяем скрытую переменную p (указатель на текущую позицию)
         p_addr = self.machine_code.add_word(0)
-        # Инициализация p = bufAddr
+        # Initialize p = bufAddr
         arguments[0].accept(self)             # buf
         self._emit(Opcode.PUSH, p_addr)       # buf, p_addr
         self._emit(Opcode.STORE)              # MEM[p_addr] = buf
         # loop:
         loop_start = len(self.machine_code.instructions)
-        # if (p - buf) >= maxLen-1 -> end
+        # If (p - buf) >= maxLen-1 -> end
         self._emit(Opcode.PUSH, p_addr)
         self._emit(Opcode.LOAD)               # p
         arguments[0].accept(self)             # p, buf
@@ -574,7 +577,7 @@ class CodeGenerator(ASTVisitor):
         self._emit(Opcode.SUB)                # maxLen-1
         self._emit(Opcode.GE)
         j_end_full = self._emit(Opcode.JNZ, 0)
-        # ch input and checks
+        # Read one char and perform checks
         self._emit(Opcode.IN, self.INPUT_PORT)
         self._emit(Opcode.DUP)
         self._emit(Opcode.PUSH, 0)
@@ -585,9 +588,9 @@ class CodeGenerator(ASTVisitor):
         self._emit(Opcode.EQ)
         j_end_nl = self._emit(Opcode.JNZ, 0)
         self._emit(Opcode.PUSH, p_addr)
-        self._emit(Opcode.LOAD)               # ch, p  (на вершине p)
+        self._emit(Opcode.LOAD)               # ch, p  (p on top)
         self._emit(Opcode.STOREB)
-        # p = p + 1
+        # Advance pointer by 1
         self._emit(Opcode.PUSH, p_addr)
         self._emit(Opcode.LOAD)
         self._emit(Opcode.PUSH, 1)
@@ -601,7 +604,7 @@ class CodeGenerator(ASTVisitor):
         self._patch_address(j_end_full, end_addr)
         self._patch_address(j_end_zero, end_addr)
         self._patch_address(j_end_nl, end_addr)
-        # *p = 0 (terminator)
+        # Write string terminator: *p = 0
         self._emit(Opcode.PUSH, p_addr)
         self._emit(Opcode.LOAD)
         self._emit(Opcode.PUSH, 0)
@@ -623,8 +626,7 @@ class CodeGenerator(ASTVisitor):
             raise CodeGenError("chr принимает ровно один аргумент")
         
         arguments[0].accept(self)
-        # Для простоты возвращаем число как есть (код символа)
-        # В реальной реализации могли бы преобразовывать в строку
+        # Return number as-is (character code); could convert to string in real impl
 
     def _generate_putc(self, arguments: List[Expression]) -> None:
         """Вывод одного символа (код в TOS) через порт 2."""
@@ -635,7 +637,7 @@ class CodeGenerator(ASTVisitor):
 
     # Векторные builtin'ы (тонкая обёртка над V_* инструкциями CPU)
     def _generate_v_load(self, arguments: List[Expression]) -> None:
-        if len(arguments) != 3:
+        if len(arguments) != ARGS_3:
             raise CodeGenError("v_load(addr, length, reg)")
         # Порядок для стека: addr, length, reg
         arguments[0].accept(self)
@@ -644,7 +646,7 @@ class CodeGenerator(ASTVisitor):
         self._emit(Opcode.V_LOAD)
 
     def _generate_v_add(self, arguments: List[Expression]) -> None:
-        if len(arguments) != 3:
+        if len(arguments) != ARGS_3:
             raise CodeGenError("v_add(reg1, reg2, result_reg)")
         # Порядок на стеке: reg1, reg2, result
         arguments[0].accept(self)
@@ -653,14 +655,14 @@ class CodeGenerator(ASTVisitor):
         self._emit(Opcode.V_ADD)
 
     def _generate_v_dot(self, arguments: List[Expression]) -> None:
-        if len(arguments) != 2:
+        if len(arguments) != ARGS_2:
             raise CodeGenError("v_dot(reg1, reg2)")
         arguments[0].accept(self)
         arguments[1].accept(self)
         self._emit(Opcode.V_DOT)
 
     def _generate_v_store(self, arguments: List[Expression]) -> None:
-        if len(arguments) != 2:
+        if len(arguments) != ARGS_2:
             raise CodeGenError("v_store(reg, addr)")
         # порядок на стеке: addr, reg
         arguments[1].accept(self)
@@ -675,7 +677,7 @@ class CodeGenerator(ASTVisitor):
 
     def _generate_set_interrupt_handler(self, arguments: List[Expression]) -> None:
         """Генерировать код для set_interrupt_handler."""
-        if len(arguments) != 2:
+        if len(arguments) != ARGS_2:
             raise CodeGenError("set_interrupt_handler принимает 2 аргумента")
         
         arguments[0].accept(self)  # Номер прерывания
@@ -700,4 +702,4 @@ class CodeGenerator(ASTVisitor):
 def generate_code(program: Program) -> MachineCode:
     """Удобная функция для генерации кода."""
     generator = CodeGenerator()
-    return generator.generate(program) 
+    return generator.generate(program)

@@ -374,11 +374,11 @@ class Parser:
         """Первичные выражения."""
         if self.match(TokenType.TRUE):
             self.advance()
-            return BooleanLiteral(True)
+            return BooleanLiteral(value=True)
         
         if self.match(TokenType.FALSE):
             self.advance()
-            return BooleanLiteral(False)
+            return BooleanLiteral(value=False)
         
         if self.match(TokenType.NULL):
             self.advance()
@@ -440,7 +440,7 @@ class Parser:
             
             if self.current_token().type in (
                 TokenType.FUNCTION, TokenType.VAR, TokenType.FOR,
-                TokenType.IF, TokenType.WHILE, TokenType.RETURN
+                TokenType.IF, TokenType.WHILE, TokenType.RETURN,
             ):
                 return
             

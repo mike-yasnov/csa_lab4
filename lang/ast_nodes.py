@@ -1,7 +1,7 @@
 """AST nodes for the Alg-like language."""
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Union
+from typing import Any, List
 from dataclasses import dataclass
 
 

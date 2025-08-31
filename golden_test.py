@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
 """Golden tests for translator and machine correctness."""
 
-import os
 import re
 import sys
 import subprocess
@@ -24,12 +22,19 @@ class GoldenTest:
         """Normalize output by removing ephemeral paths."""
         # Strip random macOS temp sandbox path
         text = re.sub(r"/var/folders/[^/]+/[^/]+/[^/]+/[^/]+", "<tempfile>", text)
-        # Strip Python tempfile prefixes
-        text = re.sub(r"/tmp/tmp[a-zA-Z0-9_]+", "<tempfile>", text)
+        # Strip Python tempfile prefixes (use dynamic tmpdir to avoid hardcoded /tmp)
+        tmpdir = re.escape(tempfile.gettempdir())
+        text = re.sub(rf"{tmpdir}/tmp[a-zA-Z0-9_]+", "<tempfile>", text)  # noqa: S108
         # Normalize generic tmp prefixes in logs
         return re.sub(r"tmp[a-zA-Z0-9_]+/", "tempfile/", text)
     
-    def run_test(self, _test_name: str, source_file: str, input_data: str = "", schedule_data: Dict[str, Any] | None = None) -> Tuple[int, str, str, str, str]:
+    def run_test(
+        self,
+        _test_name: str,
+        source_file: str,
+        input_data: str = "",
+        schedule_data: Dict[str, Any] | None = None,
+    ) -> Tuple[int, str, str, str, str]:
         """Run one test and return: code, stdout, stderr, exec_log, debug_listing."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -42,7 +47,14 @@ class GoldenTest:
                 "--debug",
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir, check=False, shell=False)
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=self.root_dir,
+                check=False,
+                shell=False,
+            )
             if result.returncode != 0:
                 return result.returncode, "", f"Translation error: {result.stderr}", "", ""
             # Читаем отладочный листинг транслятора
@@ -51,24 +63,39 @@ class GoldenTest:
             if debug_listing_path.exists():
                 debug_listing = debug_listing_path.read_text(encoding='utf-8')
             
-            # Запускаем машину
+            # Run the machine
             cmd = [
                 sys.executable, "machine.py",
                 str(temp_path / "program.bin"),
                 "-d", str(temp_path / "program_data.bin"),
                 "--log-exec", str(temp_path / "exec.log"),
             ]
-            # Если задано расписание, сохраняем его во временный файл и передаем
+            # If schedule provided, save it and pass as a file
             if schedule_data is not None:
                 schedule_path = temp_path / "schedule.json"
                 schedule_path.write_text(json.dumps(schedule_data), encoding='utf-8')
                 cmd.extend(["--schedule", str(schedule_path)])
             
             if input_data:
-                # Если есть входные данные
-                result = subprocess.run(cmd, input=input_data, capture_output=True, text=True, cwd=self.root_dir, check=False, shell=False)
+                # With input data
+                result = subprocess.run(
+                    cmd,
+                    input=input_data,
+                    capture_output=True,
+                    text=True,
+                    cwd=self.root_dir,
+                    check=False,
+                    shell=False,
+                )
             else:
-                result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.root_dir, check=False, shell=False)
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    cwd=self.root_dir,
+                    check=False,
+                    shell=False,
+                )
             
             # Нормализуем вывод
             normalized_stdout = self.normalize_output(result.stdout)
@@ -198,9 +225,12 @@ class GoldenTest:
         return all_passed
 
 
+CLI_MIN_ARGS = 2
+
+
 def main() -> None:
     """CLI entry point."""
-    if len(sys.argv) < 2:
+    if len(sys.argv) < CLI_MIN_ARGS:
         sys.stdout.write("Usage:\n")
         sys.stdout.write("  python golden_test.py generate  - generate goldens\n")
         sys.stdout.write("  python golden_test.py test      - run tests\n")

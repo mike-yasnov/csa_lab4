@@ -5,19 +5,27 @@ from comp.processor import StackProcessor, ProcessorError
 from isa.machine_code import Instruction
 from isa.opcodes import Opcode
 
+# Constants to avoid magic numbers in assertions
+PUSH_VALUE = 42
+SUM_5_3 = 8
+MUL_RESULT = 16
+EXEC_COUNT_FIVE = 5
+EXEC_COUNT_FOUR = 4
+FINAL_PC_AFTER_HALT = 3
+
 
 def test_basic_stack_operations() -> None:
     """Тест основных стековых операций."""
     processor = StackProcessor()
     
-    # PUSH 42
-    processor.push(42)
+    # PUSH value
+    processor.push(PUSH_VALUE)
     assert len(processor.stack) == 1
-    assert processor.stack[0] == 42
+    assert processor.stack[0] == PUSH_VALUE
     
     # POP
     value = processor.pop()
-    assert value == 42
+    assert value == PUSH_VALUE
     assert len(processor.stack) == 0
 
 
@@ -38,7 +46,7 @@ def test_arithmetic_operations() -> None:
     
     assert result['state'] == 'halted'
     assert len(processor.stack) == 1
-    assert processor.stack[0] == 8
+    assert processor.stack[0] == SUM_5_3
 
 
 def test_memory_operations() -> None:
@@ -47,7 +55,7 @@ def test_memory_operations() -> None:
     
     # Записываем значение 42 по адресу 0
     instructions = [
-        Instruction(Opcode.PUSH, 42),  # value
+        Instruction(Opcode.PUSH, PUSH_VALUE),  # value
         Instruction(Opcode.PUSH, 0),   # address
         Instruction(Opcode.STORE),     # store
         Instruction(Opcode.PUSH, 0),   # address
@@ -60,7 +68,7 @@ def test_memory_operations() -> None:
     
     assert result['state'] == 'halted'
     assert len(processor.stack) == 1
-    assert processor.stack[0] == 42
+    assert processor.stack[0] == PUSH_VALUE
 
 
 def test_stack_underflow() -> None:
@@ -106,8 +114,8 @@ def test_complex_calculation() -> None:
     
     assert result['state'] == 'halted'
     assert len(processor.stack) == 1
-    assert processor.stack[0] == 16
-    assert result['instructions_executed'] == 5
+    assert processor.stack[0] == MUL_RESULT
+    assert result['instructions_executed'] == EXEC_COUNT_FIVE
 
 
 def test_execution_stats() -> None:
@@ -124,6 +132,6 @@ def test_execution_stats() -> None:
     processor.load_program(instructions)
     result = processor.run()
     
-    assert result['instructions_executed'] == 4
-    assert result['cycles_executed'] >= 4  # Минимум по одному такту на инструкцию
-    assert result['final_pc'] == 3  # PC после HALT 
+    assert result['instructions_executed'] == EXEC_COUNT_FOUR
+    assert result['cycles_executed'] >= EXEC_COUNT_FOUR  # Минимум по одному такту на инструкцию
+    assert result['final_pc'] == FINAL_PC_AFTER_HALT  # PC после HALT

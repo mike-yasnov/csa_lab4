@@ -5,7 +5,7 @@ import sys
 import json
 from pathlib import Path
 
-from comp.processor import StackProcessor
+from comp.processor import StackProcessor, ProcessorError
 from isa.machine_code import MachineCode
 
 
@@ -58,7 +58,7 @@ def main() -> None:
                 sys.exit(1)
             try:
                 schedule = json.loads(schedule_path.read_text(encoding='utf-8'))
-            except Exception as e:
+            except (json.JSONDecodeError, OSError) as e:
                 sys.stderr.write(f"Schedule read error: {e}\n")
                 sys.exit(1)
             # Ожидается ключ "input": список объектов {cycle:int, data:int}
@@ -136,7 +136,7 @@ def main() -> None:
             sys.stdout.write(f"\nProgram finished with state: {result['state']}\n")
             sys.exit(1)
         
-    except Exception as e:
+    except (OSError, ValueError, KeyError, TypeError, ProcessorError) as e:
         sys.stderr.write(f"Execution error: {e}\n")
         sys.exit(1)
 

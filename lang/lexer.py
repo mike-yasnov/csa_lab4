@@ -1,6 +1,6 @@
 """Lexer for the Alg-like language syntax."""
 
-from typing import List, Optional
+from typing import List
 
 from .tokens import Token, TokenType, KEYWORDS, TWO_CHAR_OPERATORS, SINGLE_CHAR_OPERATORS
 
@@ -218,6 +218,6 @@ class Lexer:
 
 
 def tokenize(text: str) -> List[Token]:
-    """Helper function to tokenize text."""
+    """Tokenize the input text into a list of tokens."""
     lexer = Lexer(text)
     return lexer.tokenize()
