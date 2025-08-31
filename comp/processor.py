@@ -71,7 +71,7 @@ class Memory:
         if address < 0 or address + 4 > self.size:
             raise ProcessorError(f"Неверный адрес памяти: {address}")
         
-        return struct.unpack('<I', self.data[address:address+4])[0]
+        return int.from_bytes(self.data[address:address+4], byteorder='little', signed=False)
     
     def write_word(self, address: int, value: int) -> None:
         """Записать 32-битное слово в память."""
@@ -407,7 +407,7 @@ class StackProcessor:
         if address < 0 or address + 4 > len(self.data_memory):
             raise ProcessorError(f"Неверный адрес памяти: {address}")
         
-        return struct.unpack('<I', self.data_memory[address:address+4])[0]
+        return int.from_bytes(self.data_memory[address:address+4], byteorder='little', signed=False)
     
     def write_memory_word(self, address: int, value: int) -> None:
         """Записать 32-битное слово в память данных."""

@@ -35,7 +35,6 @@ ignore = [
     "RET505", "UP006", "UP035", "PERF401", "I001", "C901",
     # Allow large switch-like functions in CPU core
     "PLR0911", "PLR0912", "PLR0915",
-    # Allow subprocess usage in CLI test harness
     "S603",
 ]
 

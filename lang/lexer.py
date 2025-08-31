@@ -91,7 +91,10 @@ class Lexer:
     def read_string(self) -> Token:
         """Прочитать строку в кавычках."""
         start_line, start_column = self.line, self.column
-        quote_char = self.current_char()  # " или '
+        qc = self.current_char()  # '"' or '\''
+        if qc is None:
+            raise LexerError("Unterminated string", start_line, start_column)
+        quote_char: str = qc
         self.advance()  # Пропускаем открывающую кавычку
         
         result = ''

@@ -187,7 +187,7 @@ class Parser:
         self.consume(TokenType.LPAREN, "Ожидалась '('")
         
         # Инициализация
-        init = None
+        init: Statement | None = None
         if self.match(TokenType.SEMICOLON):
             self.advance()
         elif self.match(TokenType.VAR):
@@ -196,13 +196,13 @@ class Parser:
             init = self.expression_statement()
         
         # Условие
-        condition = None
+        condition: Expression | None = None
         if not self.match(TokenType.SEMICOLON):
             condition = self.expression()
         self.consume(TokenType.SEMICOLON, "Ожидалась ';'")
         
         # Обновление
-        update = None
+        update: Expression | None = None
         if not self.match(TokenType.RPAREN):
             update = self.expression()
         self.consume(TokenType.RPAREN, "Ожидалась ')'")

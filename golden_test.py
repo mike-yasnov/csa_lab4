@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import json
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, cast
 
 
 class GoldenTest:
@@ -132,7 +132,7 @@ class GoldenTest:
         if not golden_file.exists():
             return None
         with golden_file.open('r', encoding='utf-8') as f:
-            return json.load(f)
+            return cast(Dict[str, Any], json.load(f))
     
     def compare_results(self, test_name: str, actual: Tuple[int, str, str, str, str]) -> bool:
         """Compare actual result with golden one."""
