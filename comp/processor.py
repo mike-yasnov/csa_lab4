@@ -1,12 +1,29 @@
 """Модель стекового процессора с векторными расширениями и системой прерываний."""
 
 import struct
-from typing import List, Dict, Optional, Any, Tuple, Union
+from typing import List, Dict, Any, Tuple
 from enum import Enum
-import logging
 
-from isa.opcodes import Opcode, INSTRUCTION_CYCLES, is_vector_operation
-from isa.machine_code import Instruction, MachineCode
+from isa.opcodes import Opcode, INSTRUCTION_CYCLES
+from isa.machine_code import Instruction
+
+# Constants to replace magic numbers and improve readability
+STACK_MIN_ONE = 1
+STACK_MIN_TWO = 2
+STACK_MIN_THREE = 3
+
+PORT_OUT_DIGIT = 0
+PORT_OUT_STRING = 1
+PORT_OUT_CHAR = 2
+
+SYS_SET_HANDLER = 0x80
+SYS_ENABLE_INTERRUPTS = 0x81
+SYS_DISABLE_INTERRUPTS = 0x82
+SWI_PRINT_STRING = 0
+SWI_RETURN_ZERO = 1
+
+EXEC_LOG_MAX_LEN = 1000
+EXEC_LOG_TRIM_TO = 500
 
 
 class ProcessorState(Enum):
@@ -111,7 +128,7 @@ class IOController:
         interrupts = []
         
         # Проверяем запланированные прерывания
-        while (self.interrupt_schedule and 
+        while (self.interrupt_schedule and
                self.interrupt_schedule[0][0] <= cycle):
             scheduled_cycle, int_type, data = self.interrupt_schedule.pop(0)
             
@@ -347,7 +364,7 @@ class StackProcessor:
         self.execution_log: List[str] = []
 
         # Потактовая модель
-        self.current_instruction: Optional[Instruction] = None
+        self.current_instruction: Instruction | None = None
         self.remaining_cycles: int = 0
 
         # Контроллер ввода-вывода (для расписания ввода)
@@ -407,6 +424,9 @@ class StackProcessor:
         # Логирование факта завершения инструкции (перед выполнением семантики на последнем такте)
         self.log_execution(instruction)
         
+        def _error(message: str) -> None:
+            raise ProcessorError(message)
+
         try:
             if opcode == Opcode.HALT:
                 self.state = ProcessorState.HALTED
@@ -423,16 +443,16 @@ class StackProcessor:
                     value = self.stack[-1]
                     self.push(value)
                 else:
-                    raise ProcessorError("Стек пуст для DUP")
+                    _error("Стек пуст для DUP")
             
             elif opcode == Opcode.SWAP:
-                if len(self.stack) >= 2:
+                if len(self.stack) >= STACK_MIN_TWO:
                     a = self.pop()
                     b = self.pop()
                     self.push(a)
                     self.push(b)
                 else:
-                    raise ProcessorError("Недостаточно элементов для SWAP")
+                    _error("Недостаточно элементов для SWAP")
             
             elif opcode == Opcode.ADD:
                 b = self.pop()
@@ -456,7 +476,7 @@ class StackProcessor:
                 b = self.pop()
                 a = self.pop()
                 if b == 0:
-                    raise ProcessorError("Деление на ноль")
+                    _error("Деление на ноль")
                 result = (a // b) & 0xFFFFFFFF
                 self.push(result)
             
@@ -464,7 +484,7 @@ class StackProcessor:
                 b = self.pop()
                 a = self.pop()
                 if b == 0:
-                    raise ProcessorError("Деление на ноль")
+                    _error("Деление на ноль")
                 result = (a % b) & 0xFFFFFFFF
                 self.push(result)
             
@@ -555,7 +575,7 @@ class StackProcessor:
                     self.state = ProcessorState.HALTED
                     return False
             
-            # Операции с памятью
+            # Memory operations
             elif opcode == Opcode.LOAD:
                 address = self.pop()
                 value = self.read_memory_word(address)
@@ -563,7 +583,7 @@ class StackProcessor:
             elif opcode == Opcode.LOADB:
                 address = self.pop()
                 if address < 0 or address >= len(self.data_memory):
-                    raise ProcessorError(f"Неверный адрес памяти: {address}")
+                    _error(f"Неверный адрес памяти: {address}")
                 self.push(self.data_memory[address])
             
             elif opcode == Opcode.STORE:
@@ -574,10 +594,10 @@ class StackProcessor:
                 address = self.pop()
                 value = self.pop() & 0xFF
                 if address < 0 or address >= len(self.data_memory):
-                    raise ProcessorError(f"Неверный адрес памяти: {address}")
+                    _error(f"Неверный адрес памяти: {address}")
                 self.data_memory[address] = value
             
-            # Портовый I/O с прерываниями
+            # Port I/O with interrupts
             elif opcode == Opcode.IN:
                 # Читаем из входного буфера
                 if self.input_buffer:
@@ -590,7 +610,7 @@ class StackProcessor:
             elif opcode == Opcode.OUT:
                 value = self.pop()
                 # Порт 1: вывод C-строки по адресу
-                if operand == 1:
+                if operand == PORT_OUT_STRING:
                     if 0 <= value < len(self.data_memory):
                         string_bytes: List[int] = []
                         addr = value
@@ -603,11 +623,11 @@ class StackProcessor:
                         for ch in str(value):
                             self.output_buffer.append(ord(ch))
                 # Порт 0: вывод числа в ASCII (Digit)
-                elif operand == 0:
+                elif operand == PORT_OUT_DIGIT:
                     for ch in str(value):
                         self.output_buffer.append(ord(ch))
                 # Порт 2: одиночный символ (char)
-                elif operand == 2:
+                elif operand == PORT_OUT_CHAR:
                     self.output_buffer.append(value & 0xFF)
                 else:
                     # По умолчанию выводим сырое значение (как байт)
@@ -625,115 +645,115 @@ class StackProcessor:
                     self.in_interrupt = False
                     return True
                 else:
-                    raise ProcessorError("Стек вызовов пуст при IRET")
+                    _error("Стек вызовов пуст при IRET")
             
             # Векторные операции
             elif opcode == Opcode.V_ADD:
                 # Ожидаем 3 регистра на стеке: reg1, reg2, result_reg
-                if len(self.stack) >= 3:
+                if len(self.stack) >= STACK_MIN_THREE:
                     result_reg = self.pop()
                     reg2 = self.pop()
                     reg1 = self.pop()
                     self.vector_unit.vector_add(reg1, reg2, result_reg)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_ADD")
+                    _error("Недостаточно параметров для V_ADD")
             
             elif opcode == Opcode.V_SUB:
-                if len(self.stack) >= 3:
+                if len(self.stack) >= STACK_MIN_THREE:
                     result_reg = self.pop()
                     reg2 = self.pop()
                     reg1 = self.pop()
                     self.vector_unit.vector_sub(reg1, reg2, result_reg)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_SUB")
+                    _error("Недостаточно параметров для V_SUB")
             
             elif opcode == Opcode.V_MUL:
-                if len(self.stack) >= 3:
+                if len(self.stack) >= STACK_MIN_THREE:
                     result_reg = self.pop()
                     reg2 = self.pop()
                     reg1 = self.pop()
                     self.vector_unit.vector_mul(reg1, reg2, result_reg)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_MUL")
+                    _error("Недостаточно параметров для V_MUL")
             
             elif opcode == Opcode.V_DOT:
-                if len(self.stack) >= 2:
+                if len(self.stack) >= STACK_MIN_TWO:
                     reg2 = self.pop()
                     reg1 = self.pop()
                     result = self.vector_unit.vector_dot(reg1, reg2)
                     self.push(result)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_DOT")
+                    _error("Недостаточно параметров для V_DOT")
             
             elif opcode == Opcode.V_NORM:
-                if len(self.stack) >= 1:
+                if len(self.stack) >= STACK_MIN_ONE:
                     reg = self.pop()
                     result = self.vector_unit.vector_norm(reg)
                     self.push(result)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_NORM")
+                    _error("Недостаточно параметров для V_NORM")
             
             elif opcode == Opcode.V_MAX:
-                if len(self.stack) >= 1:
+                if len(self.stack) >= STACK_MIN_ONE:
                     reg = self.pop()
                     result = self.vector_unit.vector_max(reg)
                     self.push(result)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_MAX")
+                    _error("Недостаточно параметров для V_MAX")
             
             elif opcode == Opcode.V_MIN:
-                if len(self.stack) >= 1:
+                if len(self.stack) >= STACK_MIN_ONE:
                     reg = self.pop()
                     result = self.vector_unit.vector_min(reg)
                     self.push(result)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_MIN")
+                    _error("Недостаточно параметров для V_MIN")
             
             elif opcode == Opcode.V_SUM:
-                if len(self.stack) >= 1:
+                if len(self.stack) >= STACK_MIN_ONE:
                     reg = self.pop()
                     result = self.vector_unit.vector_sum(reg)
                     self.push(result)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_SUM")
+                    _error("Недостаточно параметров для V_SUM")
             
             elif opcode == Opcode.V_AVG:
-                if len(self.stack) >= 1:
+                if len(self.stack) >= STACK_MIN_ONE:
                     reg = self.pop()
                     result = self.vector_unit.vector_avg(reg)
                     self.push(result)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_AVG")
+                    _error("Недостаточно параметров для V_AVG")
             
             elif opcode == Opcode.V_SCALE:
-                if len(self.stack) >= 3:
+                if len(self.stack) >= STACK_MIN_THREE:
                     result_reg = self.pop()
                     scalar = self.pop()
                     reg = self.pop()
                     self.vector_unit.vector_scale(reg, scalar, result_reg)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_SCALE")
+                    _error("Недостаточно параметров для V_SCALE")
             
             elif opcode == Opcode.V_COPY:
-                if len(self.stack) >= 2:
+                if len(self.stack) >= STACK_MIN_TWO:
                     dst_reg = self.pop()
                     src_reg = self.pop()
                     self.vector_unit.vector_copy(src_reg, dst_reg)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_COPY")
+                    _error("Недостаточно параметров для V_COPY")
             
             elif opcode == Opcode.V_SET:
                 # index в operand, value и reg на стеке
-                if len(self.stack) >= 2:
+                if len(self.stack) >= STACK_MIN_TWO:
                     value = self.pop()
                     reg = self.pop()
                     self.vector_unit.vector_set(reg, operand, value)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_SET")
+                    _error("Недостаточно параметров для V_SET")
             
             elif opcode == Opcode.V_LOAD:
                 # Загрузить вектор из памяти данных
-                if len(self.stack) >= 3:
+                if len(self.stack) >= STACK_MIN_THREE:
                     reg = self.pop()
                     length = self.pop()
                     address = self.pop()
@@ -750,11 +770,11 @@ class StackProcessor:
                     
                     self.vector_unit.load_vector(reg, elements)
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_LOAD")
+                    _error("Недостаточно параметров для V_LOAD")
             
             elif opcode == Opcode.V_STORE:
                 # Сохранить вектор в память данных
-                if len(self.stack) >= 2:
+                if len(self.stack) >= STACK_MIN_TWO:
                     reg = self.pop()
                     address = self.pop()
                     
@@ -765,12 +785,12 @@ class StackProcessor:
                         else:
                             break
                 else:
-                    raise ProcessorError("Недостаточно параметров для V_STORE")
+                    _error("Недостаточно параметров для V_STORE")
             
             else:
-                raise ProcessorError(f"Неизвестная инструкция: {opcode}")
+                _error(f"Неизвестная инструкция: {opcode}")
         
-        except ProcessorError as e:
+        except ProcessorError:
             self.state = ProcessorState.HALTED
             return False
         
@@ -781,25 +801,24 @@ class StackProcessor:
     def handle_software_interrupt(self, vector: int) -> None:
         """Обработать программное прерывание."""
         # Управление прерываниями / системные вызовы
-        if vector == 0x80:
-            # set_interrupt_handler(irq, handler_addr)
-            if len(self.stack) >= 2:
+        if vector == SYS_SET_HANDLER:
+            if len(self.stack) >= STACK_MIN_TWO:
                 handler_addr = self.pop()
                 irq_vec = self.pop()
                 self.interrupt_handlers[int(irq_vec)] = int(handler_addr)
             else:
                 raise ProcessorError("Недостаточно параметров для установки обработчика")
-        elif vector == 0x81:
+        elif vector == SYS_ENABLE_INTERRUPTS:
             self.interrupts_enabled = True
-        elif vector == 0x82:
+        elif vector == SYS_DISABLE_INTERRUPTS:
             self.interrupts_enabled = False
-        elif vector == 0:
+        elif vector == SWI_PRINT_STRING:
             # Печать строки по адресу на стеке через порт 1
             if self.stack:
                 _ = self.pop()
                 self.execute_instruction(Instruction(Opcode.OUT, 1))
-        elif vector == 1:
-            # Возвратить 0 
+        elif vector == SWI_RETURN_ZERO:
+            # Возвратить 0
             self.push(0)
     
     def step(self) -> bool:
@@ -830,7 +849,7 @@ class StackProcessor:
                     self.pc = handler
                     self.in_interrupt = True
                     self.execution_log.append(
-                        f"Cycle {self.cycle_count:06d}: ENTER_IRQ vec={vector} -> PC={self.pc:04X}"
+                        f"Cycle {self.cycle_count:06d}: ENTER_IRQ vec={vector} -> PC={self.pc:04X}",
                     )
 
             self.current_instruction = self.instruction_memory[self.pc]
@@ -867,7 +886,7 @@ class StackProcessor:
             'final_pc': self.pc,
             'stack_size': len(self.stack),
             'output': self.output_buffer.copy(),
-            'execution_log': self.execution_log.copy()
+            'execution_log': self.execution_log.copy(),
         }
     
     def log_execution(self, instruction: Instruction) -> None:
@@ -880,8 +899,8 @@ class StackProcessor:
         self.execution_log.append(log_entry)
         
         # Ограничиваем размер лога
-        if len(self.execution_log) > 1000:
-            self.execution_log = self.execution_log[-500:] 
+        if len(self.execution_log) > EXEC_LOG_MAX_LEN:
+            self.execution_log = self.execution_log[-EXEC_LOG_TRIM_TO:]
 
     def schedule_input_event(self, cycle: int, data: int) -> None:
         """Запланировать поступление байта ввода на указанном такте."""

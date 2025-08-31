@@ -32,7 +32,9 @@ ignore = [
     "ANN101", "ANN102", "ANN401", "S101",
     # Relax rules to keep current code style and non-ASCII docs
     "RUF002", "Q000", "W293", "W292", "D204", "PIE790", "TRY003", "EM101", "EM102",
-    "RET505", "UP006", "UP035", "PERF401", "I001", "C901"
+    "RET505", "UP006", "UP035", "PERF401", "I001", "C901",
+    # Allow large switch-like functions in CPU core
+    "PLR0911", "PLR0912", "PLR0915",
 ]
 
 [tool.mypy]
